@@ -1,0 +1,9 @@
+.wwebjs_cache
+.wwebjs_auth
+privated/
+node_modules
+dist
+uploads
+test-db.js
+test-env.js
+test-user.js
