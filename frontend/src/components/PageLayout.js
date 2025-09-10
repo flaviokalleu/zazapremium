@@ -145,15 +145,15 @@ export const ProtectedRoute = ({ children, requiredPermissions, isMasterAdminOnl
     return <Navigate to="/login" replace />;
   }
 
-  // Super admin tem acesso a tudo
-  if (user.role === 'super_admin' || user.isMasterAdmin) {
+  // Super admin tem acesso a tudo (incluindo rotas isMasterAdminOnly)
+  if (user.role === 'super_admin') {
     console.log('🔒 ProtectedRoute: Super admin - acesso total permitido');
     return children;
   }
 
   // Verificar se é necessário ser master admin
-  if (isMasterAdminOnly && !isMasterAdmin) {
-    console.log('🔒 ProtectedRoute: Acesso negado - não é master admin');
+  if (isMasterAdminOnly && !isMasterAdmin && user.role !== 'super_admin') {
+    console.log('🔒 ProtectedRoute: Acesso negado - não é master admin nem super_admin');
     return fallback || (
       <div className="flex items-center justify-center h-screen bg-slate-900">
         <div className="text-center">

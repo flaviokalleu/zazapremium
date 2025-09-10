@@ -41,7 +41,7 @@ export default function CompaniesPage() {
 
   // Verificar se é super admin
   useEffect(() => {
-    if (user?.role !== 'super_admin' && !user?.isMasterAdmin) {
+    if (user?.role !== 'super_admin') {
       alert('Acesso negado. Apenas o Super Admin pode gerenciar empresas.');
       window.location.href = '/dashboard';
       return;
@@ -158,13 +158,13 @@ export default function CompaniesPage() {
     }
   };
 
-  if (!user?.isMasterAdmin) {
+  if (user?.role !== 'super_admin') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <XCircleIcon className="mx-auto h-12 w-12 text-red-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">Acesso Negado</h3>
-          <p className="mt-1 text-sm text-gray-500">Você não tem permissão para acessar esta página.</p>
+          <p className="mt-1 text-sm text-gray-500">Apenas Super Admins podem acessar esta página.</p>
         </div>
       </div>
     );
