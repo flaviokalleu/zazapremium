@@ -1,32 +1,38 @@
 import express from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { tenantMiddleware, requireCompany } from '../middleware/tenantMiddleware.js';
 import { moveTicket, listTickets, acceptTicket, resolveTicket, closeTicket, updateTicket, deleteTicket, restoreTicket, permanentDeleteTicket, getTicketByUid, createTicket, updateTicketPriority } from '../controllers/ticketController.js';
 import { transferTicketToQueue } from '../controllers/queueController.js';
 const router = express.Router();
 
+// Aplicar middlewares em todas as rotas
+router.use(authMiddleware);
+router.use(tenantMiddleware);
+router.use(requireCompany); // Tickets sempre requerem empresa
+
 // Listar tickets com filtros e busca avançada
-router.get('/', authMiddleware, listTickets);
+router.get('/', listTickets);
 
 // Buscar ticket por UID (para links diretos)
-router.get('/uid/:uid', authMiddleware, getTicketByUid);
+router.get('/uid/:uid', getTicketByUid);
 
 // Criar ticket
-router.post('/', authMiddleware, createTicket);
+router.post('/', createTicket);
 
 // Aceitar ticket
-router.put('/:ticketId/accept', authMiddleware, acceptTicket);
+router.put('/:ticketId/accept', acceptTicket);
 
 // Resolver ticket
-router.put('/:ticketId/resolve', authMiddleware, resolveTicket);
+router.put('/:ticketId/resolve', resolveTicket);
 
 // Fechar ticket
-router.put('/:ticketId/close', authMiddleware, closeTicket);
+router.put('/:ticketId/close', closeTicket);
 
 // Mover ticket para outra fila
-router.post('/move', authMiddleware, moveTicket);
+router.post('/move', moveTicket);
 
 // Transferir ticket para outra fila (ou agente)
-router.post('/:ticketId/transfer', authMiddleware, transferTicketToQueue);
+router.post('/:ticketId/transfer', transferTicketToQueue);
 
 // Atualizar ticket (campos permitidos)
 router.put('/:ticketId', authMiddleware, updateTicket);

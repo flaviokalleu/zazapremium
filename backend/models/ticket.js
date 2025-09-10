@@ -22,6 +22,14 @@ const Ticket = sequelize.define('Ticket', {
       key: 'id',
     },
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'companies',
+      key: 'id',
+    },
+  },
   contactId: {
     type: DataTypes.INTEGER,
     allowNull: true,

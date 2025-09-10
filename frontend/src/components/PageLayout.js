@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import SocketAuthStatus from './common/SocketAuthStatus';
+import CompanySelector from './CompanySelector';
 import {
   HomeIcon,
   ChatBubbleBottomCenterTextIcon,
@@ -20,7 +21,8 @@ import {
   UsersIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CpuChipIcon
+  CpuChipIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChatBubbleBottomCenterTextIcon as ChatBubbleBottomCenterTextIconSolid
@@ -48,20 +50,20 @@ const sidebarMenus = [
     icon: HomeIcon, 
     label: 'Dashboard', 
     route: '/dashboard',
-    permissions: ['attendant', 'supervisor', 'admin']
+    permissions: ['attendant', 'supervisor', 'admin', 'super_admin']
   },
   {
     type: 'group',
     icon: ChatBubbleBottomCenterTextIcon,
     label: 'Conversas',
     description: 'Gerencie suas mensagens',
-    permissions: ['attendant', 'supervisor', 'admin'],
+    permissions: ['attendant', 'supervisor', 'admin', 'super_admin'],
     items: [
-      { icon: ChatBubbleBottomCenterTextIcon, label: 'Mensagens', route: '/chat', description: 'Chat principal', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: ClockIcon, label: 'Recentes', route: '/recent', description: 'Conversas recentes', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: StarIcon, label: 'Favoritos', route: '/favorites', description: 'Conversas favoritas', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: ArchiveBoxIcon, label: 'Arquivadas', route: '/archived', description: 'Conversas arquivadas', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: TrashIcon, label: 'Lixeira', route: '/trash', description: 'Conversas excluídas', permissions: ['attendant', 'supervisor', 'admin'] }
+      { icon: ChatBubbleBottomCenterTextIcon, label: 'Mensagens', route: '/chat', description: 'Chat principal', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: ClockIcon, label: 'Recentes', route: '/recent', description: 'Conversas recentes', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: StarIcon, label: 'Favoritos', route: '/favorites', description: 'Conversas favoritas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: ArchiveBoxIcon, label: 'Arquivadas', route: '/archived', description: 'Conversas arquivadas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: TrashIcon, label: 'Lixeira', route: '/trash', description: 'Conversas excluídas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] }
     ]
   },
   {
@@ -69,11 +71,11 @@ const sidebarMenus = [
     icon: UserGroupIcon,
     label: 'Contatos',
     description: 'Gerencie contatos e filas',
-    permissions: ['attendant', 'supervisor', 'admin'],
+    permissions: ['attendant', 'supervisor', 'admin', 'super_admin'],
     items: [
-      { icon: UserGroupIcon, label: 'Contatos', route: '/contacts', description: 'Lista de contatos', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: AdjustmentsHorizontalIcon, label: 'Filas', route: '/queues', description: 'Filas de atendimento', permissions: ['supervisor', 'admin'] },
-      { icon: TagIcon, label: 'Tags', route: '/tags', description: 'Organização de atendimentos', permissions: ['attendant', 'supervisor', 'admin'] }
+      { icon: UserGroupIcon, label: 'Contatos', route: '/contacts', description: 'Lista de contatos', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: AdjustmentsHorizontalIcon, label: 'Filas', route: '/queues', description: 'Filas de atendimento', permissions: ['supervisor', 'admin', 'super_admin'] },
+      { icon: TagIcon, label: 'Tags', route: '/tags', description: 'Organização de atendimentos', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] }
     ]
   },
   {
@@ -81,10 +83,10 @@ const sidebarMenus = [
     icon: PhoneIcon,
     label: 'Conexões',
     description: 'Sessões e integrações',
-    permissions: ['supervisor', 'admin'],
+    permissions: ['supervisor', 'admin', 'super_admin'],
     items: [
-      { icon: PhoneIcon, label: 'Sessões', route: '/sessions', description: 'Sessões WhatsApp', permissions: ['supervisor', 'admin'] },
-      { icon: PuzzlePieceIcon, label: 'Integrações', route: '/integrations', description: 'Integrações externas', permissions: ['admin'] }
+      { icon: PhoneIcon, label: 'Sessões', route: '/sessions', description: 'Sessões WhatsApp', permissions: ['supervisor', 'admin', 'super_admin'] },
+      { icon: PuzzlePieceIcon, label: 'Integrações', route: '/integrations', description: 'Integrações externas', permissions: ['admin', 'super_admin'] }
     ]
   },
   {
@@ -92,36 +94,75 @@ const sidebarMenus = [
     icon: ClockIcon,
     label: 'Automação',
     description: 'Ferramentas de automação',
-    permissions: ['attendant', 'supervisor', 'admin'],
+    permissions: ['attendant', 'supervisor', 'admin', 'super_admin'],
     items: [
-      { icon: ChatBubbleBottomCenterTextIcon, label: 'Respostas Rápidas', route: '/quick-replies', description: 'Templates de mensagem', permissions: ['attendant', 'supervisor', 'admin'] },
-      { icon: ClockIcon, label: 'Agendamentos', route: '/schedules', description: 'Mensagens programadas', permissions: ['attendant', 'supervisor', 'admin'], hasCounter: true },
-      { icon: SpeakerWaveIcon, label: 'Campanhas', route: '/campaigns', description: 'Disparos em massa', permissions: ['supervisor', 'admin'] }
+      { icon: ChatBubbleBottomCenterTextIcon, label: 'Respostas Rápidas', route: '/quick-replies', description: 'Templates de mensagem', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
+      { icon: ClockIcon, label: 'Agendamentos', route: '/schedules', description: 'Mensagens programadas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'], hasCounter: true },
+      { icon: SpeakerWaveIcon, label: 'Campanhas', route: '/campaigns', description: 'Disparos em massa', permissions: ['supervisor', 'admin', 'super_admin'] }
     ]
   },
   {
     type: 'group',
     icon: Cog6ToothIcon,
     label: 'Administração',
-    description: 'Configurações avançadas',
-    permissions: ['admin'],
+    description: 'Configurações da empresa',
+    permissions: ['admin', 'super_admin'],
     items: [
-      { icon: UsersIcon, label: 'Agentes', route: '/agents', description: 'Gerenciar usuários', permissions: ['admin'] },
-      { icon: CpuChipIcon, label: 'Gerenciador de Bibliotecas', route: '/library-manager', description: 'Sistema inteligente de bibliotecas', permissions: ['admin'] },
-      { icon: Cog6ToothIcon, label: 'Configurações', route: '/settings', description: 'Configurações do sistema', permissions: ['admin'] }
+      { icon: UsersIcon, label: 'Agentes', route: '/agents', description: 'Gerenciar usuários', permissions: ['admin', 'super_admin'] },
+      { icon: CpuChipIcon, label: 'Gerenciador de Bibliotecas', route: '/library-manager', description: 'Sistema inteligente de bibliotecas', permissions: ['admin', 'super_admin'] },
+      { icon: Cog6ToothIcon, label: 'Configurações', route: '/settings', description: 'Configurações do sistema', permissions: ['admin', 'super_admin'] }
+    ]
+  },
+  {
+    type: 'single',
+    icon: BuildingOfficeIcon,
+    label: 'Empresas (Master)',
+    route: '/companies',
+    description: 'Gerenciar todas as empresas do SaaS',
+    permissions: ['super_admin'],
+    isMasterAdminOnly: true
+  },
+  {
+    type: 'group',
+    icon: BuildingOfficeIcon,
+    label: 'Master Admin',
+    description: 'Gerenciamento SaaS',
+    permissions: ['super_admin'],
+    items: [
+      { icon: BuildingOfficeIcon, label: 'Empresas', route: '/companies', description: 'Gerenciar todas as empresas', permissions: ['super_admin'], isMasterAdminOnly: true }
     ]
   }
 ];
 
 // Componente para proteger rotas baseado em permissões
-export const ProtectedRoute = ({ children, requiredPermissions, fallback = null }) => {
-  const { user } = useAuth();
+export const ProtectedRoute = ({ children, requiredPermissions, isMasterAdminOnly = false, fallback = null }) => {
+  const { user, isMasterAdmin } = useAuth();
   
-  console.log('🔒 ProtectedRoute: Verificando acesso - user:', user, 'requiredPermissions:', requiredPermissions);
+  console.log('🔒 ProtectedRoute: Verificando acesso - user:', user, 'requiredPermissions:', requiredPermissions, 'isMasterAdminOnly:', isMasterAdminOnly);
   
   if (!user) {
     console.log('🔒 ProtectedRoute: Usuário não encontrado, redirecionando para login');
     return <Navigate to="/login" replace />;
+  }
+
+  // Super admin tem acesso a tudo
+  if (user.role === 'super_admin' || user.isMasterAdmin) {
+    console.log('🔒 ProtectedRoute: Super admin - acesso total permitido');
+    return children;
+  }
+
+  // Verificar se é necessário ser master admin
+  if (isMasterAdminOnly && !isMasterAdmin) {
+    console.log('🔒 ProtectedRoute: Acesso negado - não é master admin');
+    return fallback || (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <div className="text-center">
+          <div className="text-red-400 text-6xl mb-4">🚫</div>
+          <h1 className="text-2xl font-bold text-white mb-2">Acesso Negado</h1>
+          <p className="text-gray-400">Apenas o administrador master pode acessar esta página.</p>
+        </div>
+      </div>
+    );
   }
   
   if (requiredPermissions && !hasPermission(user.role, requiredPermissions)) {
@@ -168,15 +209,23 @@ export const usePermissions = () => {
 // Função para verificar se o usuário tem permissão
 const hasPermission = (userRole, requiredPermissions) => {
   if (!requiredPermissions || requiredPermissions.length === 0) return true;
+  
+  // Super admin tem todas as permissões
+  if (userRole === 'super_admin') return true;
+  
   return requiredPermissions.includes(userRole);
 };
 
 // Função para filtrar menus baseado nas permissões do usuário
-const filterMenusByPermissions = (menus, userRole) => {
+const filterMenusByPermissions = (menus, userRole, isMasterAdmin = false) => {
   return menus
     .filter(menu => {
       // Se é um menu single, verifica suas próprias permissões
       if (menu.type === 'single') {
+        // Se é super_admin, sempre permitir acesso (ignora isMasterAdminOnly temporariamente)
+        if (userRole === 'super_admin') return true;
+        // Se requer master admin e usuário não é master admin, bloquear
+        if (menu.isMasterAdminOnly && !isMasterAdmin && userRole !== 'super_admin') return false;
         return hasPermission(userRole, menu.permissions);
       }
       // Se é um grupo, verifica se o grupo tem permissão
@@ -187,7 +236,13 @@ const filterMenusByPermissions = (menus, userRole) => {
       if (menu.type === 'group' && menu.items) {
         return {
           ...menu,
-          items: menu.items.filter(item => hasPermission(userRole, item.permissions))
+          items: menu.items.filter(item => {
+            // Se é super_admin, sempre permitir acesso
+            if (userRole === 'super_admin') return true;
+            // Se requer master admin e usuário não é master admin, bloquear
+            if (item.isMasterAdminOnly && !isMasterAdmin && userRole !== 'super_admin') return false;
+            return hasPermission(userRole, item.permissions);
+          })
         };
       }
       return menu;
@@ -202,7 +257,7 @@ const filterMenusByPermissions = (menus, userRole) => {
 };
 
 export default function PageLayout({ children, title, subtitle }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isMasterAdmin } = useAuth();
   const { getSetting, getLogoUrl } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
@@ -320,7 +375,7 @@ export default function PageLayout({ children, title, subtitle }) {
   };
 
   // Filtrar menus baseado nas permissões do usuário
-  const filteredMenus = filterMenusByPermissions(sidebarMenus, user?.role || 'attendant');
+  const filteredMenus = filterMenusByPermissions(sidebarMenus, user?.role || 'attendant', isMasterAdmin);
 
   return (
     <div className="flex h-screen bg-gray-50 page-layout-fix relative">
@@ -515,6 +570,15 @@ export default function PageLayout({ children, title, subtitle }) {
           })}
         </nav>
 
+        {/* Company Selector - Apenas para Super Admin */}
+        {(isMasterAdmin || user?.role === 'super_admin') && (sidebarOpen || isMobile) && (
+          <div className="w-full px-3 mb-4">
+            <div className="bg-slate-700 rounded-lg border border-slate-600">
+              <CompanySelector />
+            </div>
+          </div>
+        )}
+
         {/* User Profile */}
         <div className="w-full px-3">
           {(sidebarOpen || isMobile) ? (
@@ -590,6 +654,14 @@ export default function PageLayout({ children, title, subtitle }) {
                 {subtitle && <p className="text-gray-600 mt-1 text-sm md:text-base">{subtitle}</p>}
               </div>
               <div className="text-xs md:text-sm text-gray-500">
+                {(isMasterAdmin || user?.role === 'super_admin') && (
+                  <div className="text-right mb-1">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                      <BuildingOfficeIcon className="w-3 h-3 mr-1" />
+                      Super Admin
+                    </span>
+                  </div>
+                )}
                 {user?.name && (
                   <span className="hidden sm:inline">Olá, <strong>{user.name}</strong></span>
                 )}

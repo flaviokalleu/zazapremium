@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch, safeJson } from '../../utils/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import CompanySelector from '../CompanySelector';
 import {
   UserPlusIcon,
   PencilIcon,
@@ -12,12 +13,13 @@ import {
 } from '@heroicons/react/24/outline';
 
 const AgentsComponent = () => {
-  const { user } = useAuth();
+  const { user, isMasterAdmin } = useAuth();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -31,7 +33,19 @@ const AgentsComponent = () => {
   const loadAgents = async () => {
     try {
       setLoading(true);
-      const response = await apiFetch('/api/users');
+      
+      // Para master admin, precisamos especificar uma empresa
+      if (isMasterAdmin && !selectedCompanyId) {
+        setAgents([]);
+        return;
+      }
+      
+      let url = '/api/users';
+      if (isMasterAdmin && selectedCompanyId) {
+        url += `?companyId=${selectedCompanyId}`;
+      }
+      
+      const response = await apiFetch(url);
       const data = await safeJson(response);
       if (data.success) {
         setAgents(data.users || []);
@@ -45,7 +59,12 @@ const AgentsComponent = () => {
 
   useEffect(() => {
     loadAgents();
-  }, []);
+  }, [selectedCompanyId]);
+
+  // Handler para mudança de empresa
+  const handleCompanyChange = (company) => {
+    setSelectedCompanyId(company?.id || null);
+  };
 
   // Filtrar agentes por busca
   const filteredAgents = agents.filter(agent =>
@@ -101,12 +120,18 @@ const AgentsComponent = () => {
       const url = editingAgent ? `/api/users/${editingAgent.id}` : '/api/users';
       const method = editingAgent ? 'PUT' : 'POST';
 
+      // Adicionar companyId se for master admin
+      const payload = { ...formData };
+      if (isMasterAdmin && selectedCompanyId) {
+        payload.companyId = selectedCompanyId;
+      }
+
       const response = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       const data = await safeJson(response);
@@ -208,6 +233,26 @@ const AgentsComponent = () => {
 
   return (
     <div className="p-6 bg-slate-900 min-h-screen">
+      {/* Seletor de empresa para Master Admin */}
+      {isMasterAdmin && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Selecionar Empresa:
+          </label>
+          <div className="max-w-md">
+            <CompanySelector
+              selectedCompanyId={selectedCompanyId}
+              onCompanyChange={handleCompanyChange}
+            />
+          </div>
+          {!selectedCompanyId && (
+            <p className="mt-2 text-sm text-yellow-400">
+              Selecione uma empresa para visualizar e gerenciar seus agentes.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="mt-3 text-sm text-gray-300 space-y-1">
@@ -218,7 +263,12 @@ const AgentsComponent = () => {
         </div>
         <button
           onClick={() => openModal()}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-300"
+          disabled={isMasterAdmin && !selectedCompanyId}
+          className={`${
+            isMasterAdmin && !selectedCompanyId
+              ? 'bg-gray-500 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700'
+          } text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-300`}
         >
           <UserPlusIcon className="w-5 h-5" />
           Novo Agente
@@ -251,6 +301,20 @@ const AgentsComponent = () => {
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div>
             <p className="mt-2 text-gray-400">Carregando agentes...</p>
+          </div>
+        ) : isMasterAdmin && !selectedCompanyId ? (
+          <div className="p-8 text-center">
+            <UserPlusIcon className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-2">Selecione uma empresa</h3>
+            <p className="text-gray-400">Escolha uma empresa acima para visualizar e gerenciar seus agentes.</p>
+          </div>
+        ) : filteredAgents.length === 0 ? (
+          <div className="p-8 text-center">
+            <UserPlusIcon className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-2">Nenhum agente encontrado</h3>
+            <p className="text-gray-400">
+              {searchTerm ? 'Nenhum agente corresponde aos critérios de busca.' : 'Adicione o primeiro agente para começar.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

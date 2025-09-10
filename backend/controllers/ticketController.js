@@ -59,6 +59,11 @@ export const listTickets = async (req, res) => {
     const where = {};
     const contactWhere = {}; // Filtros para o modelo Contact
     
+    // Filtrar por empresa (isolamento de tenant)
+    if (req.companyId) {
+      where.companyId = req.companyId;
+    }
+    
     // Se ticketId for especificado, buscar apenas esse ticket
     if (ticketId) {
       where.id = ticketId;
@@ -168,8 +173,15 @@ export const getTicketByUid = async (req, res) => {
 
     console.log(`🔍 Buscando ticket por UID: ${uid}`);
 
+    const whereClause = { uid };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+
     const ticket = await Ticket.findOne({
-      where: { uid },
+      where: whereClause,
       include: getTicketIncludes()
     });
 
@@ -189,11 +201,25 @@ export const moveTicket = async (req, res) => {
   const { ticketId, targetQueueId } = req.body;
   try {
     console.log(`🔄 Movendo ticket #${ticketId} para fila #${targetQueueId}`);
-  const intelligentLibraryManager = (await import('../services/intelligentLibraryManager.js')).default;
-    const ticket = await Ticket.findByPk(ticketId);
+    const intelligentLibraryManager = (await import('../services/intelligentLibraryManager.js')).default;
+    
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
+    const ticket = await Ticket.findOne({ where: whereClause });
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
     
-    const queue = await Queue.findByPk(targetQueueId);
+    // Verificar se a fila também pertence à mesma empresa
+    const queueWhereClause = { id: targetQueueId };
+    if (req.companyId) {
+      queueWhereClause.companyId = req.companyId;
+    }
+    
+    const queue = await Queue.findOne({ where: queueWhereClause });
     if (!queue) return res.status(404).json({ error: 'Fila de destino não encontrada.' });
     
     // TODO: Implementar lógica de associação ticket-fila quando necessário
@@ -218,8 +244,16 @@ export const acceptTicket = async (req, res) => {
     
     console.log(`🎫 Tentando aceitar ticket #${ticketId} pelo usuário ${userId}`);
     
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
     // Buscar ticket
-    const ticket = await Ticket.findByPk(ticketId, {
+    const ticket = await Ticket.findOne({
+      where: whereClause,
       include: getTicketIncludes()
     });
     
@@ -374,8 +408,15 @@ export const resolveTicket = async (req, res) => {
     
     console.log(`🎫 Tentando resolver ticket #${ticketId} pelo usuário ${userId}`);
     
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
     // Buscar ticket
-    const ticket = await Ticket.findByPk(ticketId);
+    const ticket = await Ticket.findOne({ where: whereClause });
     
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket não encontrado.' });
@@ -502,7 +543,15 @@ export const updateTicketPriority = async (req, res) => {
     if (!priority) {
       return res.status(400).json({ error: 'priority é obrigatório' });
     }
-    const ticket = await Ticket.findByPk(ticketId);
+    
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
+    const ticket = await Ticket.findOne({ where: whereClause });
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket não encontrado' });
     }
@@ -526,8 +575,15 @@ export const closeTicket = async (req, res) => {
     const { ticketId } = req.params;
     const userId = req.user.id;
     
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
     // Buscar ticket
-    const ticket = await Ticket.findByPk(ticketId);
+    const ticket = await Ticket.findOne({ where: whereClause });
     
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket não encontrado.' });
@@ -655,7 +711,15 @@ export const updateTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
     const updates = req.body;
-    const ticket = await Ticket.findByPk(ticketId);
+    
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
+    const ticket = await Ticket.findOne({ where: whereClause });
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
 
     // Limitar campos que podem ser atualizados via API pública
@@ -772,7 +836,15 @@ export const updateTicket = async (req, res) => {
 export const deleteTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const ticket = await Ticket.findByPk(ticketId);
+    
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
+    const ticket = await Ticket.findOne({ where: whereClause });
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
 
     // Marcar como deletado (soft delete)
@@ -792,7 +864,15 @@ export const deleteTicket = async (req, res) => {
 export const restoreTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const ticket = await Ticket.findByPk(ticketId);
+    
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
+    const ticket = await Ticket.findOne({ where: whereClause });
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
 
     // Restaurar status para 'open' (ou outro valor baseado em histórico)
@@ -816,8 +896,16 @@ export const permanentDeleteTicket = async (req, res) => {
     
     console.log(`🗑️ Iniciando deleção permanente do ticket #${ticketId} pelo usuário ${userId}`);
     
+    const whereClause = { id: ticketId };
+    
+    // Adicionar filtro por empresa (isolamento de tenant)
+    if (req.companyId) {
+      whereClause.companyId = req.companyId;
+    }
+    
     // Buscar ticket com contato vinculado
-    const ticket = await Ticket.findByPk(ticketId, {
+    const ticket = await Ticket.findOne({
+      where: whereClause,
       include: [
         {
           model: Contact,
@@ -1011,7 +1099,8 @@ export const createTicket = async (req, res) => {
           sessionId,
           name: contact_name || null,
           pushname: contact_name || null,
-          formattedNumber: contact_number
+          formattedNumber: contact_number,
+          companyId: req.companyId // Adicionar empresa ao contato
         });
       }
     }
@@ -1023,7 +1112,8 @@ export const createTicket = async (req, res) => {
       queueId: queueId || null,
       contact: whatsappId,
       status: status || 'open',
-      chatStatus: 'waiting'
+      chatStatus: 'waiting',
+      companyId: req.companyId // Adicionar empresa ao ticket
     });
 
     // Buscar ticket com associações para retorno

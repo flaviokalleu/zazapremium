@@ -40,6 +40,17 @@ const Setting = sequelize.define('Setting', {
     allowNull: false,
     defaultValue: false,
     comment: 'Se a configuração pode ser acessada publicamente (sem autenticação)'
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'companies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+    comment: 'ID da empresa (null para configurações globais)'
   }
 }, {
   tableName: 'settings',

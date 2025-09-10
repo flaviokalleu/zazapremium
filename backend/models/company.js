@@ -1,7 +1,7 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../services/sequelize.js';
 
-const User = sequelize.define('User', {
+const Company = sequelize.define('Company', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -16,37 +16,44 @@ const User = sequelize.define('User', {
     allowNull: false,
     unique: true,
   },
-  password: {
+  phone: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
-  role: {
-    type: DataTypes.ENUM('super_admin', 'admin', 'supervisor', 'attendant'),
+  // Plano da empresa
+  plan: {
+    type: DataTypes.ENUM('basic', 'premium', 'unlimited'),
     allowNull: false,
-    defaultValue: 'attendant',
+    defaultValue: 'basic',
   },
-  companyId: {
+  // Limites do plano
+  maxUsers: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    references: {
-      model: 'companies',
-      key: 'id',
-    },
+    defaultValue: 5,
+    comment: 'Número máximo de usuários permitidos'
   },
+  maxQueues: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 3,
+    comment: 'Número máximo de filas permitidas'
+  },
+  // Status da empresa
   isActive: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true,
   },
-  isMasterAdmin: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false,
-    comment: 'Identifica se o usuário é o administrador master do sistema'
-  },
 }, {
-  tableName: 'users',
+  tableName: 'companies',
   timestamps: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['email']
+    }
+  ]
 });
 
-export default User;
+export default Company;

@@ -15,6 +15,14 @@ const Session = sequelize.define('Session', {
       key: 'id',
     },
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'companies',
+      key: 'id',
+    },
+  },
   whatsappId: {
     type: DataTypes.STRING,
     allowNull: false,

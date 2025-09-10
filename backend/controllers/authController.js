@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/index.js';
+import { User, Company } from '../models/index.js';
 import { TokenService } from '../services/tokenService.js';
 
 // Util para determinar opções de cookie de refresh de forma flexível
@@ -41,8 +41,28 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ 
+      where: { email },
+      include: [
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name', 'plan', 'isActive']
+        }
+      ]
+    });
+    
     if (!user) return res.status(400).json({ error: 'Usuário não encontrado.' });
+    
+    // Verificar se o usuário está ativo
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'Usuário inativo. Entre em contato com o administrador.' });
+    }
+    
+    // Verificar se a empresa está ativa (exceto para admin master)
+    if (!user.isMasterAdmin && user.company && !user.company.isActive) {
+      return res.status(403).json({ error: 'Empresa inativa. Entre em contato com o suporte.' });
+    }
     
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ error: 'Senha inválida.' });
@@ -64,7 +84,10 @@ export const login = async (req, res) => {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role
+          role: user.role,
+          companyId: user.companyId,
+          isMasterAdmin: user.isMasterAdmin,
+          company: user.company
         },
         ...(process.env.EXPOSE_REFRESH_TOKEN === 'true' ? { refreshToken } : {})
       });

@@ -1,10 +1,19 @@
-import { User } from '../models/index.js';
+import { User, Company } from '../models/index.js';
 import bcrypt from 'bcryptjs';
 
 // Obter perfil do usuário logado
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'name', 'email'] });
+    const user = await User.findByPk(req.user.id, { 
+      attributes: ['id', 'name', 'email', 'role', 'companyId'],
+      include: [
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name', 'plan']
+        }
+      ]
+    });
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -113,17 +122,36 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// Listar todos os usuários (apenas para administradores)
+// Listar todos os usuários (filtrados por empresa)
 export const getUsers = async (req, res) => {
   try {
-    // Verificar se o usuário logado é administrador
     const currentUser = await User.findByPk(req.user.id);
+    
+    // Verificar permissões
     if (!currentUser || currentUser.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem listar usuários.' });
     }
 
+    let whereClause = {};
+    
+    // Se não é admin master, filtrar pela empresa do usuário
+    if (!currentUser.isMasterAdmin) {
+      whereClause.companyId = currentUser.companyId;
+    } else if (req.companyId) {
+      // Admin master pode filtrar por empresa específica
+      whereClause.companyId = req.companyId;
+    }
+
     const users = await User.findAll({
-      attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      where: whereClause,
+      attributes: ['id', 'name', 'email', 'role', 'isActive', 'companyId', 'createdAt', 'updatedAt'],
+      include: [
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['createdAt', 'DESC']]
     });
 
@@ -161,7 +189,7 @@ export const getUserById = async (req, res) => {
 // Criar novo usuário
 export const createUser = async (req, res) => {
   try {
-    const { name, email, password, role = 'attendant', isActive = true } = req.body;
+    const { name, email, password, role = 'attendant', isActive = true, companyId } = req.body;
 
     // Verificar se o usuário logado é administrador
     const currentUser = await User.findByPk(req.user.id);
@@ -172,6 +200,33 @@ export const createUser = async (req, res) => {
     // Validar dados obrigatórios
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
+    }
+
+    // Determinar a empresa
+    let targetCompanyId;
+    if (currentUser.isMasterAdmin) {
+      // Admin master pode especificar qualquer empresa ou usar a do contexto
+      targetCompanyId = companyId || req.companyId;
+      if (!targetCompanyId) {
+        return res.status(400).json({ error: 'Empresa deve ser especificada.' });
+      }
+    } else {
+      // Admin normal só pode criar usuários na própria empresa
+      targetCompanyId = currentUser.companyId;
+    }
+
+    // Verificar se a empresa existe
+    const company = await Company.findByPk(targetCompanyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Empresa não encontrada.' });
+    }
+
+    // Verificar limite de usuários da empresa
+    const userCount = await User.count({ where: { companyId: targetCompanyId, isActive: true } });
+    if (userCount >= company.maxUsers) {
+      return res.status(400).json({ 
+        error: `Limite de usuários atingido. Plano atual permite até ${company.maxUsers} usuários.` 
+      });
     }
 
     // Verificar se o email já existe
@@ -195,7 +250,8 @@ export const createUser = async (req, res) => {
       email,
       password: hashedPassword,
       role,
-      isActive
+      isActive,
+      companyId: targetCompanyId
     });
 
     res.status(201).json({
@@ -206,6 +262,7 @@ export const createUser = async (req, res) => {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        companyId: user.companyId,
         createdAt: user.createdAt
       }
     });
@@ -229,6 +286,20 @@ export const updateUser = async (req, res) => {
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    // PROTEÇÃO: Impedir alteração do campo isMasterAdmin
+    if (req.body.hasOwnProperty('isMasterAdmin')) {
+      return res.status(403).json({ 
+        error: 'Não é possível alterar o status de administrador master.' 
+      });
+    }
+
+    // PROTEÇÃO: Impedir edição do administrador master por outros usuários
+    if (user.isMasterAdmin && !currentUser.isMasterAdmin) {
+      return res.status(403).json({ 
+        error: 'Não é possível editar o administrador master.' 
+      });
     }
 
     // Se não for admin, não pode alterar role

@@ -90,7 +90,13 @@ export const AuthProvider = ({ children }) => {
   // Propriedade computada para verificar se está autenticado
   const isAuthenticated = !!user && authService.isAuthenticated();
 
-  console.log('🔐 AuthContext: Estado atual - user:', !!user, 'isAuthenticated:', isAuthenticated, 'loading:', loading);
+  // Verificar se é master admin
+  const isMasterAdmin = !!user && user.isMasterAdmin === true;
+
+  // Obter empresa do usuário
+  const userCompany = user?.company || null;
+
+  console.log('🔐 AuthContext: Estado atual - user:', !!user, 'isAuthenticated:', isAuthenticated, 'isMasterAdmin:', isMasterAdmin, 'loading:', loading);
 
   const value = {
     user,
@@ -100,6 +106,8 @@ export const AuthProvider = ({ children }) => {
     getActiveDevices,
     loading,
     isAuthenticated,
+    isMasterAdmin,
+    userCompany,
     // Expor métodos do authService para uso direto
     request: authService.request.bind(authService)
   };

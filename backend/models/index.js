@@ -1,5 +1,6 @@
 import sequelize from '../services/sequelize.js';
 import User from './user.js';
+import Company from './company.js';
 import Session from './session.js';
 import Ticket from './ticket.js';
 import Queue from './queue.js';
@@ -21,7 +22,41 @@ import CampaignMessage from './campaignMessage.js';
 import refreshTokenFactory from './refreshToken.js';
 import Setting from './setting.js';
 
-// Definir associações
+// Company associations (Multi-tenant relationships)
+Company.hasMany(User, { foreignKey: 'companyId', as: 'users' });
+User.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Session, { foreignKey: 'companyId', as: 'sessions' });
+Session.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Ticket, { foreignKey: 'companyId', as: 'tickets' });
+Ticket.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Queue, { foreignKey: 'companyId', as: 'queues' });
+Queue.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Contact, { foreignKey: 'companyId', as: 'contacts' });
+Contact.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Integration, { foreignKey: 'companyId', as: 'integrations' });
+Integration.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(QuickReply, { foreignKey: 'companyId', as: 'quickReplies' });
+QuickReply.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Tag, { foreignKey: 'companyId', as: 'tags' });
+Tag.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Campaign, { foreignKey: 'companyId', as: 'campaigns' });
+Campaign.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Schedule, { foreignKey: 'companyId', as: 'schedules' });
+Schedule.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Company.hasMany(Setting, { foreignKey: 'companyId', as: 'companySettings' });
+Setting.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+// Definir associações existentes
 User.hasMany(Session, { foreignKey: 'userId' });
 Session.belongsTo(User, { foreignKey: 'userId' });
 
@@ -131,17 +166,18 @@ if (typeof MessageReaction.associate === 'function') MessageReaction.associate({
   User
 });
 
-export { 
+export {
   sequelize,
-  User, 
-  Session, 
-  Ticket, 
-  Queue, 
-  UserQueue, 
-  TicketComment, 
-  TicketMessage, 
-  Integration, 
-  IntegrationTicket, 
+  User,
+  Company,
+  Session,
+  Ticket,
+  Queue,
+  UserQueue,
+  TicketComment,
+  TicketMessage,
+  Integration,
+  IntegrationTicket,
   IntegrationQueue,
   Contact,
   PushSubscription,
