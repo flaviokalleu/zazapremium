@@ -277,10 +277,4 @@ print_color $WHITE "   User: $DB_USER"
 print_color $WHITE "   Password: $DB_PASSWORD"
 
 echo
-print_color $CYAN "🛠️  Comandos Úteis:"
-print_color $WHITE "   ./check-status.sh    - Verificar status"
-print_color $WHITE "   ./test-puppeteer.sh  - Testar Puppeteer"
-print_color $WHITE "   docker-compose logs  - Ver logs"
-
-echo
 print_color $BLUE "✨ Sistema pronto para uso!"
