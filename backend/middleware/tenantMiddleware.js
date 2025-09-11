@@ -10,7 +10,7 @@ const tenantMiddleware = async (req, res, next) => {
 
     // Buscar usuário completo com informações de master admin
     const user = await User.findByPk(req.user.id, {
-      include: [{ model: Company, as: 'company' }]
+      attributes: ['id', 'companyId', 'isMasterAdmin']
     });
 
     if (!user) {
@@ -33,22 +33,30 @@ const tenantMiddleware = async (req, res, next) => {
     }
 
     // Para usuários normais, usar a empresa do usuário
-    if (!user.company) {
+    if (!user.companyId) {
       return res.status(403).json({ 
         error: 'Usuário não possui empresa associada' 
       });
     }
 
+    // Buscar empresa separadamente se necessário
+    const company = await Company.findByPk(user.companyId);
+    if (!company) {
+      return res.status(403).json({ 
+        error: 'Empresa não encontrada' 
+      });
+    }
+
     // Se a empresa está inativa, bloqueia acesso
-    if (!user.company.isActive) {
+    if (!company.isActive) {
       return res.status(403).json({ 
         error: 'Empresa inativa. Entre em contato com o suporte.' 
       });
     }
 
     // Adiciona informações da empresa na requisição
-    req.company = user.company;
-    req.companyId = user.company.id;
+    req.company = company;
+    req.companyId = company.id;
     req.isMasterAdmin = false;
     
     next();
@@ -60,6 +68,11 @@ const tenantMiddleware = async (req, res, next) => {
 
 // Middleware específico para rotas que exigem empresa
 const requireCompany = (req, res, next) => {
+  // Se não há companyId mas há usuário, tentar obter do usuário
+  if (!req.companyId && req.user && req.user.companyId) {
+    req.companyId = req.user.companyId;
+  }
+  
   if (!req.companyId) {
     return res.status(400).json({ 
       error: 'Empresa não especificada. Selecione uma empresa.' 

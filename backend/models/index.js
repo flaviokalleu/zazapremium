@@ -10,6 +10,8 @@ import TicketMessage from './ticketMessage.js';
 import Integration from './integration.js';
 import IntegrationTicket from './integrationTicket.js';
 import IntegrationQueue from './integrationQueue.js';
+import QueueIntegrations from './queueIntegrations.js';
+import SessionIntegrations from './sessionIntegrations.js';
 import Contact from './contact.js';
 import PushSubscription from './pushSubscription.js';
 import QuickReply from './quickReply.js';
@@ -93,6 +95,26 @@ Queue.belongsToMany(Integration, { through: IntegrationQueue, foreignKey: 'queue
 
 IntegrationQueue.belongsTo(Integration, { foreignKey: 'integrationId', as: 'Integration' });
 IntegrationQueue.belongsTo(Queue, { foreignKey: 'queueId', as: 'Queue' });
+
+// QueueIntegrations (Typebot) associations
+Company.hasMany(QueueIntegrations, { foreignKey: 'companyId', as: 'queueIntegrations' });
+QueueIntegrations.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Queue.hasMany(QueueIntegrations, { foreignKey: 'queueId', as: 'queueIntegrations' });
+QueueIntegrations.belongsTo(Queue, { foreignKey: 'queueId', as: 'queue' });
+
+Integration.hasMany(QueueIntegrations, { foreignKey: 'integrationId', as: 'queueIntegrations' });
+QueueIntegrations.belongsTo(Integration, { foreignKey: 'integrationId', as: 'integration' });
+
+// SessionIntegrations (Typebot) associations  
+Company.hasMany(SessionIntegrations, { foreignKey: 'companyId', as: 'sessionIntegrations' });
+SessionIntegrations.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+Session.hasMany(SessionIntegrations, { foreignKey: 'sessionId', as: 'sessionIntegrations' });
+SessionIntegrations.belongsTo(Session, { foreignKey: 'sessionId', as: 'session' });
+
+Integration.hasMany(SessionIntegrations, { foreignKey: 'integrationId', as: 'sessionIntegrations' });
+SessionIntegrations.belongsTo(Integration, { foreignKey: 'integrationId', as: 'integration' });
 
 // Session <-> Contact
 Session.hasMany(Contact, { foreignKey: 'sessionId' });
@@ -179,6 +201,8 @@ export {
   Integration,
   IntegrationTicket,
   IntegrationQueue,
+  QueueIntegrations,
+  SessionIntegrations,
   Contact,
   PushSubscription,
   QuickReply,

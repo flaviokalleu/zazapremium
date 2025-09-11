@@ -8,9 +8,6 @@ import {
   HomeIcon,
   ChatBubbleBottomCenterTextIcon,
   ClockIcon,
-  StarIcon,
-  ArchiveBoxIcon,
-  TrashIcon,
   UserGroupIcon,
   AdjustmentsHorizontalIcon,
   TagIcon,
@@ -59,11 +56,7 @@ const sidebarMenus = [
     description: 'Gerencie suas mensagens',
     permissions: ['attendant', 'supervisor', 'admin', 'super_admin'],
     items: [
-      { icon: ChatBubbleBottomCenterTextIcon, label: 'Mensagens', route: '/chat', description: 'Chat principal', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
-      { icon: ClockIcon, label: 'Recentes', route: '/recent', description: 'Conversas recentes', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
-      { icon: StarIcon, label: 'Favoritos', route: '/favorites', description: 'Conversas favoritas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
-      { icon: ArchiveBoxIcon, label: 'Arquivadas', route: '/archived', description: 'Conversas arquivadas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] },
-      { icon: TrashIcon, label: 'Lixeira', route: '/trash', description: 'Conversas excluídas', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] }
+      { icon: ChatBubbleBottomCenterTextIcon, label: 'Mensagens', route: '/chat', description: 'Chat principal', permissions: ['attendant', 'supervisor', 'admin', 'super_admin'] }
     ]
   },
   {

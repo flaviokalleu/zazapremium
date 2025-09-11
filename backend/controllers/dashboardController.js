@@ -3,7 +3,9 @@ import { Op } from 'sequelize';
 
 export async function getDashboardStats(req, res) {
   try {
-    // Buscar estatísticas básicas
+    const userCompanyId = req.user.companyId;
+    
+    // Buscar estatísticas básicas filtradas pela empresa
     const [
       totalTickets,
       openTickets,
@@ -13,19 +15,25 @@ export async function getDashboardStats(req, res) {
       totalQueues,
       totalUsers
     ] = await Promise.all([
-      Ticket.count(),
-      Ticket.count({ where: { status: 'open' } }),
-      Ticket.count({ where: { status: 'closed' } }),
-      Session.count(),
-      Session.count({ where: { status: 'connected' } }),
-      Queue.count(),
-      User.count()
+      Ticket.count({ where: { companyId: userCompanyId } }),
+      Ticket.count({ where: { status: 'open', companyId: userCompanyId } }),
+      Ticket.count({ where: { status: 'closed', companyId: userCompanyId } }),
+      Session.count({ where: { companyId: userCompanyId } }),
+      Session.count({ where: { status: 'connected', companyId: userCompanyId } }),
+      Queue.count({ where: { companyId: userCompanyId } }),
+      User.count({ where: { companyId: userCompanyId } })
     ]);
 
-    // Mensagens de hoje
+    // Mensagens de hoje filtradas pela empresa
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayMessages = await TicketMessage.count({
+      include: [{
+        model: Ticket,
+        as: 'Ticket',
+        where: { companyId: userCompanyId },
+        attributes: []
+      }],
       where: {
         createdAt: {
           [Op.gte]: today
@@ -55,10 +63,17 @@ export async function getDashboardStats(req, res) {
             createdAt: {
               [Op.gte]: date,
               [Op.lt]: nextDate
-            }
+            },
+            companyId: userCompanyId
           }
         }),
         TicketMessage.count({
+          include: [{
+            model: Ticket,
+            as: 'Ticket',
+            where: { companyId: userCompanyId },
+            attributes: []
+          }],
           where: {
             createdAt: {
               [Op.gte]: date,
@@ -72,8 +87,9 @@ export async function getDashboardStats(req, res) {
       messagesLast7Days.push(dayMessages);
     }
 
-    // Tickets por status
+    // Tickets por status filtrados pela empresa
     const ticketsByStatus = await Ticket.findAll({
+      where: { companyId: userCompanyId },
       attributes: [
         'status',
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('id')), 'count']
@@ -95,7 +111,8 @@ export async function getDashboardStats(req, res) {
           createdAt: {
             [Op.gte]: startHour,
             [Op.lt]: endHour
-          }
+          },
+          companyId: userCompanyId
         }
       });
       
@@ -105,11 +122,13 @@ export async function getDashboardStats(req, res) {
       });
     }
 
-    // Tickets por fila
+    // Tickets por fila filtrados pela empresa
     const ticketsByQueue = await Ticket.findAll({
+      where: { companyId: userCompanyId },
       include: [{
         model: Queue,
-        attributes: ['name']
+        attributes: ['name'],
+        where: { companyId: userCompanyId }
       }],
       attributes: [
         [Ticket.sequelize.fn('COUNT', Ticket.sequelize.col('Ticket.id')), 'count']
@@ -118,12 +137,15 @@ export async function getDashboardStats(req, res) {
       raw: true
     });
 
-    // NPS stats + por usuário
+    // NPS stats + por usuário filtrados pela empresa
     let nps = null;
     let npsByUser = [];
     try {
       const npsTickets = await Ticket.findAll({
-        where: { npsScore: { [Op.ne]: null } },
+        where: { 
+          npsScore: { [Op.ne]: null },
+          companyId: userCompanyId
+        },
         attributes: ['npsScore','npsUserId'],
         raw: true
       });

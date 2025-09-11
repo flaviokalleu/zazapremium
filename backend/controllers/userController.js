@@ -128,8 +128,8 @@ export const getUsers = async (req, res) => {
     const currentUser = await User.findByPk(req.user.id);
     
     // Verificar permissões
-    if (!currentUser || currentUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem listar usuários.' });
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores e super administradores podem listar usuários.' });
     }
 
     let whereClause = {};
@@ -171,9 +171,9 @@ export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar se o usuário logado é administrador ou está acessando seu próprio perfil
+    // Verificar se o usuário logado é administrador, super administrador ou está acessando seu próprio perfil
     const currentUser = await User.findByPk(req.user.id);
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.id !== parseInt(id))) {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin' && currentUser.id !== parseInt(id))) {
       return res.status(403).json({ error: 'Acesso negado.' });
     }
 
@@ -196,10 +196,10 @@ export const createUser = async (req, res) => {
   try {
     const { name, email, password, role = 'attendant', isActive = true, companyId } = req.body;
 
-    // Verificar se o usuário logado é administrador
+    // Verificar se o usuário logado é administrador ou super administrador
     const currentUser = await User.findByPk(req.user.id);
-    if (!currentUser || currentUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem criar usuários.' });
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores e super administradores podem criar usuários.' });
     }
 
     // Validar dados obrigatórios
@@ -228,6 +228,8 @@ export const createUser = async (req, res) => {
 
     // Verificar limite de usuários da empresa
     const userCount = await User.count({ where: { companyId: targetCompanyId, isActive: true } });
+    console.log(`👥 Empresa ${targetCompanyId}: ${userCount} usuários ativos de ${company.maxUsers} permitidos`);
+    
     if (userCount >= company.maxUsers) {
       return res.status(400).json({ 
         error: `Limite de usuários atingido. Plano atual permite até ${company.maxUsers} usuários.` 
@@ -282,9 +284,9 @@ export const updateUser = async (req, res) => {
     const { id } = req.params;
     const { name, email, password, role, isActive } = req.body;
 
-    // Verificar se o usuário logado é administrador ou está editando seu próprio perfil
+    // Verificar se o usuário logado é administrador, super administrador ou está editando seu próprio perfil
     const currentUser = await User.findByPk(req.user.id);
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.id !== parseInt(id))) {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin' && currentUser.id !== parseInt(id))) {
       return res.status(403).json({ error: 'Acesso negado.' });
     }
 
@@ -307,8 +309,8 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Se não for admin, não pode alterar role
-    if (currentUser.role !== 'admin') {
+    // Se não for admin ou super admin, não pode alterar role
+    if (currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
       delete req.body.role;
     }
 
@@ -358,10 +360,10 @@ export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar se o usuário logado é administrador
+    // Verificar se o usuário logado é administrador ou super administrador
     const currentUser = await User.findByPk(req.user.id);
-    if (!currentUser || currentUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem excluir usuários.' });
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores e super administradores podem excluir usuários.' });
     }
 
     // Não permitir excluir o próprio usuário

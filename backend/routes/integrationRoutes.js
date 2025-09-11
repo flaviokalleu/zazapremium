@@ -4,7 +4,8 @@ import {
   listIntegrations, createIntegration, updateIntegration, deleteIntegration,
   linkIntegrationTicket, unlinkIntegrationTicket, getIntegrationsByTicket,
   linkIntegrationQueue, unlinkIntegrationQueue, getIntegrationsByQueue,
-  executeIntegration, testIntegration
+  executeIntegration, testIntegration,
+  createQueueIntegration, listQueueIntegrations, updateQueueIntegration, deleteQueueIntegration
 } from '../controllers/integrationController.js';
 
 const router = express.Router();
@@ -25,5 +26,11 @@ router.get('/by-queue/:queueId', authMiddleware, getIntegrationsByQueue);
 // Execução e teste de integrações
 router.post('/:integrationId/execute', authMiddleware, executeIntegration);
 router.post('/:integrationId/test', authMiddleware, testIntegration);
+
+// Rotas específicas para QueueIntegrations (Typebot)
+router.post('/queue-integrations', authMiddleware, createQueueIntegration);
+router.get('/queue-integrations/:queueId?', authMiddleware, listQueueIntegrations);
+router.put('/queue-integrations/:id', authMiddleware, updateQueueIntegration);
+router.delete('/queue-integrations/:id', authMiddleware, deleteQueueIntegration);
 
 export default router;

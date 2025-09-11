@@ -52,6 +52,7 @@ export const createQueue = async (req, res) => {
     const queue = await Queue.create({
       name,
       sessionId,
+      companyId: req.user.companyId,
       color: color || '#0420BF',
       botOrder: botOrder || 0,
       closeTicket: closeTicket || false,
@@ -115,13 +116,21 @@ export const listQueues = async (req, res) => {
 export const assignUserToQueue = async (req, res) => {
   try {
     const { queueId, userId } = req.body;
+    const { companyId } = req.user;
     
-    const queue = await Queue.findByPk(queueId);
+    console.log(`🔗 Tentativa de vinculação - QueueId: ${queueId}, UserId: ${userId}, CompanyId: ${companyId}`);
+    console.log(`📝 Dados do body:`, req.body);
+    
+    const queue = await Queue.findOne({
+      where: { id: queueId, companyId }
+    });
     if (!queue) {
       return res.status(404).json({ error: 'Fila não encontrada' });
     }
     
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({
+      where: { id: userId, companyId }
+    });
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
@@ -134,10 +143,12 @@ export const assignUserToQueue = async (req, res) => {
     if (existingAssociation) {
       return res.status(400).json({ error: 'Usuário já está vinculado a esta fila' });
     }
-    
-    await UserQueue.create({ userId, queueId });
-    
-    console.log(`🔗 Usuário ${user.name} vinculado à fila "${queue.name}"`);
+
+    console.log(`🔗 Tentando vincular usuário ${userId} (${user.name}) à fila ${queueId} (${queue.name})`);
+    console.log(`🔍 Usuário isMasterAdmin: ${user.isMasterAdmin}, companyId: ${user.companyId}`);
+    console.log(`🔍 Fila companyId: ${queue.companyId}`);
+
+    await UserQueue.create({ userId, queueId });    console.log(`🔗 Usuário ${user.name} vinculado à fila "${queue.name}"`);
     
     // Emitir atualização via WebSocket
     emitToAll('user-queue-assigned', { userId, queueId, userName: user.name, queueName: queue.name });
@@ -153,13 +164,18 @@ export const assignUserToQueue = async (req, res) => {
 export const removeUserFromQueue = async (req, res) => {
   try {
     const { queueId, userId } = req.body;
+    const { companyId } = req.user;
     
-    const queue = await Queue.findByPk(queueId);
+    const queue = await Queue.findOne({
+      where: { id: queueId, companyId }
+    });
     if (!queue) {
       return res.status(404).json({ error: 'Fila não encontrada' });
     }
     
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({
+      where: { id: userId, companyId }
+    });
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
@@ -207,6 +223,67 @@ export const getUserQueues = async (req, res) => {
   } catch (err) {
     console.error('❌ Erro ao buscar filas do usuário:', err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Listar usuários disponíveis para vincular às filas
+export const getAvailableUsers = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    
+    console.log(`📋 Buscando usuários disponíveis - CompanyId: ${companyId}`);
+    
+    const users = await User.findAll({
+      where: { 
+        companyId,
+        isActive: true 
+      },
+      attributes: ['id', 'name', 'email', 'role'],
+      order: [['name', 'ASC']]
+    });
+
+    console.log(`👥 Usuários encontrados: ${users.length}`);
+    users.forEach(user => {
+      console.log(`  - ${user.name} (${user.email}) - Role: ${user.role}`);
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error('❌ Erro ao buscar usuários disponíveis:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Função de debug para verificar usuários
+export const debugUsers = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    console.log(`🐛 Debug - CompanyId: ${companyId}`);
+    
+    // Buscar todos os usuários sem filtro
+    const allUsers = await User.findAll({
+      attributes: ['id', 'name', 'email', 'role', 'isActive', 'companyId', 'isMasterAdmin']
+    });
+    
+    console.log(`🐛 Total de usuários no sistema: ${allUsers.length}`);
+    
+    // Buscar usuários da empresa
+    const companyUsers = await User.findAll({
+      where: { companyId },
+      attributes: ['id', 'name', 'email', 'role', 'isActive', 'companyId', 'isMasterAdmin']
+    });
+    
+    console.log(`🐛 Usuários da empresa ${companyId}: ${companyUsers.length}`);
+    
+    res.json({
+      allUsersCount: allUsers.length,
+      companyUsersCount: companyUsers.length,
+      allUsers: allUsers,
+      companyUsers: companyUsers
+    });
+  } catch (error) {
+    console.error('❌ Erro no debug:', error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -703,6 +780,7 @@ export const duplicateQueue = async (req, res) => {
     const newQueue = await Queue.create({
       name: duplicateName,
       sessionId: originalQueue.sessionId,
+      companyId: originalQueue.companyId,
       color: originalQueue.color,
       greetingMessage: originalQueue.greetingMessage,
       outOfHoursMessage: originalQueue.outOfHoursMessage,

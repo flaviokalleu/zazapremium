@@ -11,6 +11,11 @@ import {
   processHumanTransfer,
   autoReceiveTicketToQueue
 } from './queueRules.js';
+import { processTypebotMessage } from './typebotMessageProcessor.js';
+
+// Pequeno cache em memória opcional para futura lógica (não usado ainda para evitar memória crescente)
+// Pode ser estendido para TTL se necessário (multi-processo usaria Redis)
+// const recentMessageIds = new Map();
 
 // Função para detectar se uma mensagem pode ser resposta de enquete
 const detectPollResponse = async (messageBody, ticketId) => {
@@ -70,6 +75,58 @@ const detectPollResponse = async (messageBody, ticketId) => {
     return null;
   }
 };
+
+// ===================== PENDING TYPEBOT VARIABLE MAPPING =====================
+async function mapPendingTypebotVariableIfNeeded(ticket, contact, rawContent) {
+  try {
+    if (!ticket || !ticket.typebotPendingVariable) return false;
+    const messageContent = (rawContent || '').trim();
+    if (!messageContent) return false;
+    const varKey = ticket.typebotPendingVariable;
+    const lower = varKey.toLowerCase();
+    
+    // Log para debug
+    console.log(`🧩 [TYPEBOT-DEBUG] Verificando variável pendente: '${varKey}' com conteúdo: '${messageContent}'`);
+    
+    const namePattern = /(\bnome\b|\bname\b|first.?name|cliente.?nome|customer[_-]?name|contact[_-]?name)/i;
+    const emailPattern = /(email|e-mail|mail)/i;
+    const companyPattern = /(empresa|company|companhia|compania|organizac[aã]o|organization|orgName)/i;
+
+    let matched = false;
+    let matchType = '';
+    
+    if (namePattern.test(lower)) {
+      try { await contact.update({ name: messageContent }); } catch {}
+      await ticket.update({ contactName: messageContent });
+      matched = true;
+      matchType = 'nome';
+    } else if (emailPattern.test(lower)) {
+      try { await contact.update({ email: messageContent }); } catch {}
+      matched = true;
+      matchType = 'email';
+    } else if (companyPattern.test(lower)) {
+      try { await contact.update({ company: messageContent }); } catch {}
+      matched = true;
+      matchType = 'empresa';
+    } else {
+      // Fallback: se não reconheceu o padrão mas existe variável pendente, assumir como nome
+      console.log(`🧩 [TYPEBOT-DEBUG] Padrão não reconhecido, assumindo como nome por fallback`);
+      try { await contact.update({ name: messageContent }); } catch {}
+      await ticket.update({ contactName: messageContent });
+      matched = true;
+      matchType = 'nome (fallback)';
+    }
+
+    if (matched) {
+      await ticket.update({ typebotPendingVariable: null, typebotPendingVariableAt: null });
+      console.log(`🧩 [TYPEBOT] Valor capturado para variável '${varKey}' (${matchType}): '${messageContent}'`);
+      return true;
+    }
+  } catch (err) {
+    console.warn('⚠️ [TYPEBOT] Falha ao mapear variável pendente (função reutilizável):', err.message);
+  }
+  return false;
+}
 
 
 // Agora usa a nova implementação unificada do queueRules.js
@@ -225,6 +282,7 @@ const handleBaileysMessage = async (message, sessionId) => {
       ticket = await Ticket.create({
         contact: contactId,
         contactId: contact.id,
+        contactName: contact.name,
         status: 'open',            // alinhar com criação manual
         chatStatus: 'waiting',      // necessário para aparecer em "aguardando"
         unreadCount: 1,
@@ -246,6 +304,62 @@ const handleBaileysMessage = async (message, sessionId) => {
       console.log('✅[QUEUE-ASSIGN] Resultado autoAssignTicketToQueue:', assignResult, 'queueId final=', ticket.queueId);
     } else {
       console.log(`🔄 [TICKET-UPDATE] Ticket existente encontrado #${ticket.id}. Atualizando...`);
+      // ================= EARLY DEDUP CHECK (ANTES DE ALTERAR unreadCount) =================
+      try {
+        const existingMessageSameId = await TicketMessage.findOne({ where: { messageId: message.key.id, ticketId: ticket.id } });
+        if (existingMessageSameId) {
+          if (existingMessageSameId.content && existingMessageSameId.content.trim() !== '') {
+            console.log(`🛑 [BAILEYS-DEDUP] Mensagem já processada (messageId=${message.key.id}) com conteúdo. Ignorando duplicata antes de atualizar ticket.`);
+            return; // Nada a fazer
+          }
+          // Placeholder sem conteúdo previamente salvo — se agora ainda vier vazio, ignorar; se vier com conteúdo, atualiza
+          const incomingContentNow = incomingContent || '';
+          if (!incomingContentNow.trim()) {
+            console.log(`⏳ [BAILEYS-DEDUP] Placeholder duplicado sem conteúdo (messageId=${message.key.id}). Ignorando.`);
+            return;
+          }
+          // Atualizar placeholder com conteúdo final
+          await existingMessageSameId.update({ content: incomingContentNow, messageType: detectBaileysMessageType(message) });
+          await ticket.update({ lastMessage: incomingContentNow, updatedAt: new Date() });
+          console.log(`♻️ [BAILEYS-DEDUP] Placeholder atualizado com conteúdo final para messageId=${message.key.id} (msgId DB=${existingMessageSameId.id}).`);
+          // Emitir evento de atualização
+          emitToAll('message-updated', {
+            id: existingMessageSameId.id,
+            ticketId: ticket.id,
+            sender: 'contact',
+            content: incomingContentNow,
+            messageType: existingMessageSameId.messageType,
+            channel: 'whatsapp',
+            updated: true
+          });
+          // Processar Typebot apenas agora (não foi processado antes pois não havia conteúdo)
+          try {
+            const trimmed = (incomingContentNow || '').trim();
+            if (trimmed) {
+              // Mapear variável pendente ANTES de enviar ao Typebot
+              await mapPendingTypebotVariableIfNeeded(ticket, contact, trimmed);
+              console.log('🤖 [TYPEBOT] Processando integração após atualização de placeholder...');
+              const typebotProcessed = await processTypebotMessage({ wbot: null, msg: message, ticket, sessionId: actualSessionId });
+              if (typebotProcessed) {
+                console.log(`✅ [TYPEBOT] Mensagem processada (upgrade placeholder) para ticket #${ticket.id}`);
+              } else {
+                console.log(`❌ [TYPEBOT] Nenhuma integração (upgrade placeholder) para ticket #${ticket.id}`);
+              }
+            }
+          } catch (e) {
+            console.error('❌ [TYPEBOT] Erro ao processar integração (upgrade placeholder):', e.message);
+          }
+          // Atualizar tickets para frontend
+          try {
+            await emitTicketsUpdate();
+          } catch (e) {
+            console.warn('⚠️ [FINAL-EMIT] Falha ao emitir tickets-update após upgrade placeholder:', e.message);
+          }
+          return; // Encerrar fluxo — não continuar criação de nova mensagem
+        }
+      } catch (dedupErr) {
+        console.warn('⚠️ [BAILEYS-DEDUP] Falha na checagem inicial de duplicidade:', dedupErr.message);
+      }
       // Se ticket foi encontrado por remoteNorm e temos pnNorm (1:1), migrar o ticket para usar pnNorm como contato principal
       if (!isGroup && pnNorm && ticket.contact !== pnNorm) {
         console.log(`🔁 [TICKET-MIGRATE] Migrando ticket #${ticket.id} de contato ${ticket.contact} -> ${pnNorm}`);
@@ -258,6 +372,7 @@ const handleBaileysMessage = async (message, sessionId) => {
         unreadCount: ticket.unreadCount + 1,
         lastMessage: messageText,
         updatedAt: new Date(),
+        contactName: contact.name,
         channel: ticket.channel || 'whatsapp'
       });
       console.log(`✅ [TICKET-UPDATE] Ticket existente atualizado: #${ticket.id} (unread: ${ticket.unreadCount + 1})`);
@@ -294,6 +409,12 @@ const handleBaileysMessage = async (message, sessionId) => {
 
     console.log(`💬 [BAILEYS] Conteúdo da mensagem extraído: "${messageContent}"`);
     console.log(`🔍 [BAILEYS] Tipo de mensagem detectado: "${messageType}"`);
+
+    // Evitar salvar placeholders vazios de mensagens de texto (eventos iniciais de decrypt/retry)
+    if (messageType === 'text' && (!messageContent || !messageContent.trim())) {
+      console.log(`⏳ [BAILEYS] Mensagem texto vazia (provável placeholder de descriptografia). Não salvando nem processando (messageId=${message.key.id}).`);
+      return; // Aguardar evento com conteúdo real
+    }
 
     // Processar mídia se presente
     let mediaInfo = null;
@@ -418,6 +539,13 @@ const handleBaileysMessage = async (message, sessionId) => {
     }
 
     // Salvar mensagem
+    // Checar novamente duplicidade (corrida entre eventos simultâneos)
+    const duplicateCheck = await TicketMessage.findOne({ where: { messageId: message.key.id, ticketId: ticket.id } });
+    if (duplicateCheck) {
+      console.log(`🛑 [BAILEYS-DEDUP] Detecção tardia: mensagem já existente (messageId=${message.key.id}, id=${duplicateCheck.id}). Abortando criação duplicada.`);
+      return;
+    }
+
     const savedMessage = await TicketMessage.create(messageData);
 
     console.log(`💾 [BAILEYS] Mensagem salva com ID ${savedMessage.id} para ticket #${ticket.id}`);
@@ -469,6 +597,38 @@ const handleBaileysMessage = async (message, sessionId) => {
     const { emitToTicket } = await import('./socket.js');
     emitToTicket(ticket.id, 'new-message', eventData);
     console.log(`✅ [BAILEYS] Evento emitido para sala do ticket ${ticket.id}`);
+    
+    // Mapear variável pendente (se houver) antes de processar Typebot
+  await mapPendingTypebotVariableIfNeeded(ticket, contact, messageContent);
+
+    // Processar integração Typebot para resposta automática
+    try {
+      console.log('🤖 [TYPEBOT] Iniciando processamento de integração...');
+      console.log('🤖 [TYPEBOT-DEBUG] ticket:', ticket ? `ID: ${ticket.id}` : 'undefined');
+      console.log('🤖 [TYPEBOT-DEBUG] sessionId:', actualSessionId);
+      try {
+        const { extractBaileysMessageContent } = await import('../utils/baileysMessageDetector.js');
+        const dbgContent = extractBaileysMessageContent(message);
+        console.log('🤖 [TYPEBOT-DEBUG] message:', dbgContent || '[vazio]');
+      } catch {
+        console.log('🤖 [TYPEBOT-DEBUG] message: (falha ao extrair)');
+      }
+      
+      const typebotProcessed = await processTypebotMessage({ 
+        wbot: null,
+        msg: message, 
+        ticket, 
+        sessionId: actualSessionId,
+        attachments: mediaInfo ? [{ url: mediaInfo.fileUrl || mediaInfo.filePath }] : undefined
+      });
+      if (typebotProcessed) {
+        console.log(`✅ [TYPEBOT] Mensagem processada com sucesso para ticket #${ticket.id}`);
+      } else {
+        console.log(`❌ [TYPEBOT] Nenhuma integração encontrada ou processamento falhou para ticket #${ticket?.id || 'undefined'}`);
+      }
+    } catch (e) {
+      console.error('❌ [TYPEBOT] Erro ao processar integração:', e.message);
+    }
     
     // Atualizar lista de tickets para frontend (Aguardando/Accepted tabs)
     // Evitar excesso: apenas ao criar ticket novo ou quando unreadCount muda.
@@ -641,6 +801,24 @@ export const handleWwebjsMessage = async (msg, sessionKey) => {
       } catch (e) {
         console.warn(`⚠️ [WWEBJS] Erro ao processar regras da fila:`, e?.message);
       }
+    }
+    
+    // Processar integração Typebot para resposta automática
+    try {
+      console.log('🤖 [TYPEBOT-WWEBJS] Iniciando processamento de integração...');
+      const typebotProcessed = await processTypebotMessage({ 
+        wbot, 
+        msg, 
+        ticket, 
+        sessionId: session.id 
+      });
+      if (typebotProcessed) {
+        console.log(`✅ [TYPEBOT-WWEBJS] Mensagem processada com sucesso para ticket #${ticket.id}`);
+      } else {
+        console.log(`❌ [TYPEBOT-WWEBJS] Nenhuma integração encontrada ou processamento falhou para ticket #${ticket.id}`);
+      }
+    } catch (e) {
+      console.error('❌ [TYPEBOT-WWEBJS] Erro ao processar integração:', e.message);
     }
 
     const eventData = {

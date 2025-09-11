@@ -12,6 +12,9 @@ router.use(tenantMiddleware);
 // Rota para obter empresas que o usuário pode acessar
 router.get('/accessible', companyController.getAccessibleCompanies);
 
+// Rota para obter dados da empresa atual do usuário
+router.get('/current', companyController.getCurrentCompany);
+
 // Rotas que exigem permissão de admin master
 router.use(requireMasterAdmin);
 

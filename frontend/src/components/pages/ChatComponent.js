@@ -89,6 +89,15 @@ useEffect(() => {
     const handleTicketsUpdate = (tickets) => {
       console.log('🔄 Atualização de tickets recebida via WebSocket:', tickets.length);
       setTickets(tickets);
+      
+      // Se nenhum ticket está selecionado mas há um ticketId na URL, tentar selecioná-lo
+      if (!selectedTicket && ticketId && tickets.length > 0) {
+        const targetTicket = tickets.find(t => t && t.id === parseInt(ticketId));
+        if (targetTicket) {
+          console.log(`🎯 Ticket ${ticketId} encontrado após atualização WebSocket, selecionando...`);
+          handleTicketSelect(targetTicket);
+        }
+      }
     };
     
     // Listener para novas mensagens
@@ -297,6 +306,29 @@ useEffect(() => {
     socket.on('message-update', handleMessageUpdate);
     socket.on('message-sent', handleMessageSent);
     socket.on('message-error', handleMessageError);
+    
+    // Listener para reconexão bem-sucedida
+    socket.on('auth-success', () => {
+      console.log('🔄 Socket reconectado com sucesso, recarregando dados...');
+      
+      // Pequeno delay para garantir que a reconexão foi completamente estabelecida
+      setTimeout(() => {
+        // Recarregar tickets
+        fetchTickets(true);
+        
+        // Se há um ticket selecionado, reentrar na sala e recarregar mensagens
+        if (selectedTicket) {
+          console.log(`🔄 Recarregando dados do ticket ${selectedTicket.id} após reconexão`);
+          joinTicket(selectedTicket.id);
+          fetchMessages(selectedTicket.id);
+        }
+        
+        // Se há ticketId na URL mas nenhum ticket selecionado, tentar buscar
+        if (!selectedTicket && ticketId) {
+          fetchTicketById(ticketId);
+        }
+      }, 500);
+    });
 
     // Novo: eventos de auto-recebimento e auto-atribuição
     const handleTicketAutoReceived = (data) => {
@@ -348,6 +380,7 @@ useEffect(() => {
       socket.off('message-update', handleMessageUpdate);
       socket.off('message-sent', handleMessageSent);
       socket.off('message-error', handleMessageError);
+      socket.off('auth-success');
   socket.off('test-event');
   socket.off('ticket-auto-received', handleTicketAutoReceived);
   socket.off('ticket-auto-assigned', handleTicketAutoAssigned);
@@ -420,6 +453,20 @@ useEffect(() => {
         const data = await response.json();
         setTickets(data);
         if (!silent) console.log(`✅ [FETCH TICKETS] ${data.length} tickets carregados`);
+        
+        // Após carregar tickets, verificar se precisamos selecionar algum baseado na URL
+        if (!selectedTicket && (ticketId || uid)) {
+          const identifier = uid || ticketId;
+          const targetTicket = data.find(t => t && (
+            (ticketId && t.id === parseInt(ticketId)) ||
+            (uid && t.uid === uid)
+          ));
+          
+          if (targetTicket) {
+            console.log(`🎯 Ticket ${identifier} encontrado na lista, selecionando...`);
+            handleTicketSelect(targetTicket);
+          }
+        }
       } else {
         if (!silent) console.error('❌ [FETCH TICKETS] Erro ao carregar tickets');
       }

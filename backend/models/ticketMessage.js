@@ -95,6 +95,11 @@ const TicketMessage = sequelize.define('TicketMessage', {
     defaultValue: 'whatsapp',
     comment: 'Canal da mensagem (whatsapp, instagram, facebook)'
   },
+  messageId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'ID externo único da mensagem (Baileys/WWebJS). Usado para deduplicação.'
+  },
   pollData: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -129,6 +134,13 @@ const TicketMessage = sequelize.define('TicketMessage', {
 }, {
   tableName: 'ticket_messages',
   timestamps: true, // Habilita createdAt e updatedAt
+  indexes: [
+    {
+      unique: true,
+      fields: ['ticketId', 'messageId'],
+      where: { messageId: { [sequelize.Sequelize.Op.ne]: null } }
+    }
+  ]
 });
 
 // Associações

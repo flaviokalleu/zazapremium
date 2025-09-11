@@ -19,6 +19,8 @@ import ticketStatusRoutes from './routes/ticketStatusRoutes.js';
 import ticketMessageRoutes from './routes/ticketMessageRoutes.js';
 import ticketMessageFileRoutes from './routes/ticketMessageFileRoutes.js';
 import integrationRoutes from './routes/integrationRoutes.js';
+import queueIntegrationRoutes from './routes/queueIntegrationRoutes.js';
+import sessionIntegrationRoutes from './routes/sessionIntegrationRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import sessionLibraryRoutes from './routes/sessionLibrary.js';
@@ -130,6 +132,8 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/buttons', buttonRoutes);
 app.use('/api/mc', multiChannelRoutes); // multi-channel (whatsapp/instagram/facebook)
 app.use('/api/integrations', integrationRoutes);
+app.use('/api/queue-integrations', queueIntegrationRoutes);
+app.use('/api/session-integrations', sessionIntegrationRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/dashboard', dashboardRoutes);

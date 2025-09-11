@@ -53,12 +53,26 @@ const PIE_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B
 export default function DashboardComponent() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [companyInfo, setCompanyInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDashboardStats();
+    fetchCompanyInfo();
   }, []);
+
+  const fetchCompanyInfo = async () => {
+    try {
+      const response = await AuthService.get(apiUrl('/api/companies/current'));
+      if (response.ok) {
+        const data = await response.json();
+        setCompanyInfo(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar informações da empresa:', error);
+    }
+  };
 
   const fetchDashboardStats = async () => {
     try {
@@ -161,42 +175,78 @@ export default function DashboardComponent() {
 
   return (
     <div className="p-3 sm:p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen">
-      {/* Header */}
+      {/* Header com informações da empresa */}
       <div className="mb-6 sm:mb-8">
-        <div className="flex items-center space-x-2 sm:space-x-3 mb-2">
-          <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-            Dashboard
-          </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="flex items-center space-x-2 sm:space-x-3 mb-2 sm:mb-0">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+              <ChartBarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Dashboard - {companyInfo?.name || 'Sua Empresa'}
+              </h1>
+              <p className="text-slate-400 text-sm">
+                Relatórios e estatísticas da empresa
+              </p>
+            </div>
+          </div>
+          
+          {companyInfo && (
+            <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-4 border border-slate-600">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-emerald-500/20 rounded-lg">
+                  <UserGroupIcon className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">{companyInfo.name}</p>
+                  <p className="text-slate-400 text-xs">{companyInfo.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-slate-400 text-sm sm:text-base">
-          Bem-vindo de volta, <span className="text-white font-medium">{user?.name}</span>! 
-          Aqui está um resumo das suas atividades.
-        </p>
+        
+        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+          <div className="flex items-start space-x-3">
+            <div className="p-1 bg-blue-500/20 rounded-lg flex-shrink-0 mt-0.5">
+              <SparklesIcon className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-blue-100 font-medium">
+                Bem-vindo de volta, <span className="text-white">{user?.name}</span>!
+              </p>
+              <p className="text-blue-200/70 text-sm mt-1">
+                Aqui estão as métricas e estatísticas exclusivas da sua empresa. 
+                Todos os dados apresentados são específicos do ambiente de <strong>{companyInfo?.name || 'sua empresa'}</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Cards de Estatísticas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
         <StatCard
-          title="Total de Tickets"
+          title="Tickets da Empresa"
           value={stats?.totalTickets || 0}
           icon={ChatBubbleLeftRightIcon}
           color="from-blue-500 to-blue-600"
-          subtitle="Todos os atendimentos"
+          subtitle="Total de atendimentos"
         />
         <StatCard
-          title="Tickets Abertos"
+          title="Em Atendimento"
           value={stats?.openTickets || 0}
           icon={ClockIcon}
           color="from-yellow-500 to-orange-500"
-          subtitle="Aguardando atendimento"
+          subtitle="Tickets aguardando"
         />
         <StatCard
-          title="Tickets Fechados"
+          title="Finalizados"
           value={stats?.closedTickets || 0}
           icon={CheckCircleIcon}
           color="from-green-500 to-emerald-500"
-          subtitle="Atendimentos finalizados"
+          subtitle="Tickets concluídos"
         />
         <StatCard
           title="Mensagens Hoje"
@@ -212,7 +262,7 @@ export default function DashboardComponent() {
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700">
           <h3 className="text-xl font-bold text-white mb-4 flex items-center">
             <SparklesIcon className="w-5 h-5 mr-2 text-yellow-400" />
-            Satisfação (NPS)
+            Satisfação da Empresa
           </h3>
           {stats?.nps?.totalResponses > 0 ? (
             <div className="grid grid-cols-2 gap-4">
@@ -329,7 +379,7 @@ export default function DashboardComponent() {
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center">
             <CheckCircleIcon className="w-5 h-5 mr-2 text-green-400" />
-            Taxa de Resolução
+            Resolução da Empresa
           </h3>
           
           {/* Gráfico circular de resolução */}
@@ -388,7 +438,7 @@ export default function DashboardComponent() {
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center">
             <ArrowTrendingUpIcon className="w-5 h-5 mr-2 text-blue-400" />
-            Evolução de Tickets
+            Tickets da Empresa
           </h3>
           
           {/* Gráfico de área dos últimos 7 dias */}
@@ -451,7 +501,7 @@ export default function DashboardComponent() {
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center">
             <SparklesIcon className="w-5 h-5 mr-2 text-purple-400" />
-            Performance do Sistema
+            Performance da Empresa
           </h3>
           
           {/* Métricas de performance */}
@@ -507,7 +557,7 @@ export default function DashboardComponent() {
       <div className="mb-8">
         <h2 className="text-xl font-bold text-white mb-6 flex items-center">
           <QueueListIcon className="w-6 h-6 mr-2 text-indigo-400" />
-          Gestão de Filas
+          Filas da Empresa
         </h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -562,7 +612,7 @@ export default function DashboardComponent() {
       <div className="mb-8">
         <h2 className="text-xl font-bold text-white mb-6 flex items-center">
           <FireIcon className="w-6 h-6 mr-2 text-orange-400" />
-          Status do Sistema
+          Status da Empresa
         </h2>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

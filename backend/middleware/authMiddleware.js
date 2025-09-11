@@ -9,7 +9,7 @@ if (!process.env.JWT_SECRET) {
 // Função auxiliar para autenticar via refresh token
 async function authenticateViaRefreshToken(req, res, next, refreshToken) {
   try {
-    console.log('[auth] Validando refresh token...');
+    // console.log('[auth] Validando refresh token...');  // Reduzir logs
     const tokenData = await TokenService.verifyRefreshToken(refreshToken);
     
     if (!tokenData || !tokenData.user) {
@@ -23,9 +23,24 @@ async function authenticateViaRefreshToken(req, res, next, refreshToken) {
     // Decodificar o token para obter dados do usuário
     const decoded = TokenService.verifyAccessToken(accessToken);
     const id = decoded.id || decoded.userId;
-  req.user = { ...decoded, id, companyId: decoded.companyId || decoded.company_id || 1 };
     
-    console.log('[auth] Autenticado via refresh token para usuário:', req.user.name);
+    // Garantir que sempre há companyId - buscar no banco se necessário
+    let companyId = decoded.companyId || decoded.company_id;
+    if (!companyId && id) {
+      try {
+        const { User } = await import('../models/index.js');
+        const user = await User.findByPk(id, { attributes: ['companyId'] });
+        companyId = user?.companyId || 1;
+        console.log(`[auth] CompanyId obtido do banco para usuário ${id}: ${companyId}`);
+      } catch (err) {
+        console.warn(`[auth] Erro ao buscar companyId do banco:`, err.message);
+        companyId = 1; // Fallback para empresa 1
+      }
+    }
+    
+    req.user = { ...decoded, id, companyId: companyId || 1 };
+    
+    // console.log('[auth] Autenticado via refresh token para usuário:', req.user.name);  // Reduzir logs
     next();
     
   } catch (error) {
@@ -34,7 +49,7 @@ async function authenticateViaRefreshToken(req, res, next, refreshToken) {
   }
 }
 
-export default function authMiddleware(req, res, next) {
+export default async function authMiddleware(req, res, next) {
   
   
   let token = null;
@@ -78,7 +93,22 @@ export default function authMiddleware(req, res, next) {
     const decoded = TokenService.verifyAccessToken(token);
     // Normalize user shape so controllers can rely on req.user.id
     const id = decoded.id || decoded.userId;
-  req.user = { ...decoded, id, companyId: decoded.companyId || decoded.company_id || 1 };
+    
+    // Garantir que sempre há companyId - buscar no banco se necessário
+    let companyId = decoded.companyId || decoded.company_id;
+    if (!companyId && id) {
+      try {
+        const { User } = await import('../models/index.js');
+        const user = await User.findByPk(id, { attributes: ['companyId'] });
+        companyId = user?.companyId || 1;
+        console.log(`[auth] CompanyId obtido do banco para usuário ${id}: ${companyId}`);
+      } catch (err) {
+        console.warn(`[auth] Erro ao buscar companyId do banco:`, err.message);
+        companyId = 1; // Fallback para empresa 1
+      }
+    }
+    
+    req.user = { ...decoded, id, companyId: companyId || 1 };
     
     if (!req.user.id) {
       // If token does not carry an id, reject

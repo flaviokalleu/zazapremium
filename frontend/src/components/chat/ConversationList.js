@@ -265,6 +265,13 @@ export default function ConversationList({
     ticket.Contact?.isGroup
   ) : [];
 
+  // Limitar texto de preview a 300 caracteres
+  const limitPreview = (text, max = 50) => {
+    if (!text) return '';
+    const clean = text.toString();
+    return clean.length > max ? clean.slice(0, max) + '…' : clean;
+  };
+
   // Função para buscar preview das mensagens
   const fetchPreviewMessages = async (ticketId) => {
     try {
@@ -516,11 +523,11 @@ export default function ConversationList({
                       </span>
                     )}
                     <span className={ticket.LastMessage.isFromGroup ? "ml-1" : ""}>
-                      {ticket.LastMessage.content || ticket.lastMessage || 'Mensagem sem conteúdo'}
+                      {limitPreview(ticket.LastMessage.content || ticket.lastMessage || 'Mensagem sem conteúdo')}
                     </span>
                   </>
                 ) : (
-                  ticket.lastMessage || 'Nenhuma mensagem ainda'
+                  limitPreview(ticket.lastMessage || 'Nenhuma mensagem ainda')
                 )}
               </p>
               

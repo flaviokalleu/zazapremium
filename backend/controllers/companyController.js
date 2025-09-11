@@ -1,6 +1,33 @@
 import { Company, User, Queue, Ticket } from '../models/index.js';
 import { Op } from 'sequelize';
 
+// Buscar empresa atual do usuário logado
+const getCurrentCompany = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.user.companyId, {
+      attributes: ['id', 'name', 'email', 'phone', 'createdAt'],
+      include: [
+        {
+          model: User,
+          as: 'users',
+          attributes: ['id', 'name', 'email', 'role', 'isActive'],
+          where: { isActive: true },
+          required: false
+        }
+      ]
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Empresa não encontrada' });
+    }
+
+    res.json(company);
+  } catch (error) {
+    console.error('Erro ao buscar empresa atual:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
 // Listar todas as empresas (apenas admin master)
 const getAllCompanies = async (req, res) => {
   try {
@@ -423,6 +450,7 @@ const getAccessibleCompanies = async (req, res) => {
 
 export default {
   getAllCompanies,
+  getCurrentCompany,
   createCompany,
   getCompanyById,
   updateCompany,

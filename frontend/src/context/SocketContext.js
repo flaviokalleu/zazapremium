@@ -176,6 +176,17 @@ export const SocketProvider = ({ children }) => {
         if (toast && toast.addToast) {
           toast.addToast('Conectado com sucesso!', { type: 'success', duration: 3000 });
         }
+        
+        // Após autenticação bem-sucedida, reentrar nas salas se necessário
+        const currentUrl = window.location.pathname;
+        const ticketMatch = currentUrl.match(/\/tickets\/(\d+)/);
+        if (ticketMatch) {
+          const ticketId = ticketMatch[1];
+          console.log(`🔄 Reconectando automaticamente à sala do ticket ${ticketId} após autenticação`);
+          setTimeout(() => {
+            newSocket.emit('join-ticket', ticketId);
+          }, 100); // Pequeno delay para garantir que a autenticação foi processada
+        }
       });
 
       // Novo: Listener para erro na autenticação

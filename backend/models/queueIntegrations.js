@@ -1,18 +1,24 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../services/sequelize.js';
 
-const Integration = sequelize.define('Integration', {
+const QueueIntegrations = sequelize.define('QueueIntegrations', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-  name: { type: DataTypes.STRING, allowNull: false },
-  type: { type: DataTypes.ENUM('n8n', 'typebot', 'webhook'), allowNull: false },
-  config: { type: DataTypes.JSONB, allowNull: true },
-  active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  queueId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'queues', key: 'id' },
+  },
+  integrationId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'integrations', key: 'id' },
+  },
   companyId: { 
     type: DataTypes.INTEGER, 
     allowNull: false,
     references: { model: 'companies', key: 'id' }
   },
-  // Campos específicos para Typebot
+  // Campos específicos para Typebot (duplicados aqui para facilitar acesso)
   urlN8N: { type: DataTypes.STRING, allowNull: true },
   typebotSlug: { type: DataTypes.STRING, allowNull: true },
   typebotExpires: { type: DataTypes.INTEGER, defaultValue: 0 },
@@ -21,9 +27,16 @@ const Integration = sequelize.define('Integration', {
   typebotUnknownMessage: { type: DataTypes.STRING, allowNull: true },
   typebotDelayMessage: { type: DataTypes.INTEGER, defaultValue: 1000 },
   typebotRestartMessage: { type: DataTypes.STRING, allowNull: true },
+  active: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {
-  tableName: 'integrations',
+  tableName: 'queue_integrations',
   timestamps: true,
 });
 
-export default Integration;
+QueueIntegrations.associate = (models) => {
+  QueueIntegrations.belongsTo(models.Queue, { foreignKey: 'queueId', as: 'queue' });
+  QueueIntegrations.belongsTo(models.Integration, { foreignKey: 'integrationId', as: 'integration' });
+  QueueIntegrations.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
+};
+
+export default QueueIntegrations;

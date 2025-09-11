@@ -61,6 +61,11 @@ const Ticket = sequelize.define('Ticket', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  contactName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Nome amigável do contato para uso em integrações (Typebot, templates)'
+  },
   lastMessage: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -114,6 +119,46 @@ const Ticket = sequelize.define('Ticket', {
     defaultValue: false,
     allowNull: false,
     comment: 'Se o ticket está sendo atendido por bot'
+  },
+  // Campos específicos para integração Typebot
+  typebotSessionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'ID da sessão do Typebot'
+  },
+  typebotStatus: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Status da integração com Typebot'
+  },
+  typebotSessionTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Timestamp da última sessão do Typebot'
+  },
+  useIntegration: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Se o ticket está usando integração'
+  },
+  integrationId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'integrations',
+      key: 'id',
+    },
+    comment: 'ID da integração ativa para este ticket'
+  },
+  typebotPendingVariable: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Próxima variável (variableId) aguardando input do usuário'
+  },
+  typebotPendingVariableAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Timestamp em que a variável pendente foi definida'
   },
 }, {
   tableName: 'tickets',

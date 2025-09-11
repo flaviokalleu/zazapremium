@@ -1,11 +1,14 @@
 import express from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { tenantMiddleware } from '../middleware/tenantMiddleware.js';
 import {
   createQueue,
   listQueues,
   assignUserToQueue,
   removeUserFromQueue,
   getUserQueues,
+  getAvailableUsers,
+  debugUsers,
   getQueueTickets,
   updateQueue,
   getQueueByName,
@@ -35,9 +38,11 @@ router.get('/:queueId/stats', authMiddleware, getQueueStats);
 router.get('/:queueId/performance', authMiddleware, getQueuePerformance);
 
 // Rotas de gestão de usuários
-router.post('/assign', authMiddleware, assignUserToQueue);
-router.post('/remove-user', authMiddleware, removeUserFromQueue);
-router.get('/user', authMiddleware, getUserQueues);
+router.get('/available-users', authMiddleware, tenantMiddleware, getAvailableUsers);
+router.get('/debug-users', authMiddleware, tenantMiddleware, debugUsers);
+router.post('/assign', authMiddleware, tenantMiddleware, assignUserToQueue);
+router.post('/remove-user', authMiddleware, tenantMiddleware, removeUserFromQueue);
+router.get('/user', authMiddleware, tenantMiddleware, getUserQueues);
 
 // Rotas de tickets
 router.get('/:queueId/tickets', authMiddleware, getQueueTickets);

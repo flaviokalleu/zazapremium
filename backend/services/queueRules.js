@@ -67,10 +67,10 @@ export const autoReceiveTicketToQueue = async (ticket, sessionId) => {
     await ticket.update({
       queueId: queue.id,
       status: 'pending',
-      chatStatus: 'accepted'  // Importante: quando auto-recebido, o chatStatus deve ser 'accepted'
+      chatStatus: 'waiting'  // Manter waiting até ser aceito manualmente pelo atendente
     });
 
-  qlog(`Ticket #${ticket.id} associado à fila ${queue.name} status=pending chatStatus=accepted`);
+  qlog(`Ticket #${ticket.id} associado à fila ${queue.name} status=pending chatStatus=waiting`);
 
     // Emissão imediata para reduzir janela onde frontend não vê o ticket atualizado
     try {

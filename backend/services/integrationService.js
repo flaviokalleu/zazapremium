@@ -232,8 +232,9 @@ class IntegrationService {
    * @param {Object} data - Dados
    */
   async executeTypebot(integration, event, data) {
+    // Suportar tanto o formato antigo (config.apiUrl) quanto o novo (urlN8N diretamente)
     const config = integration.config || {};
-    const typebotUrl = config.apiUrl;
+    const typebotUrl = integration.urlN8N || config.apiUrl;
 
     if (!typebotUrl) {
       console.error('❌ URL do Typebot não configurada');
@@ -245,13 +246,14 @@ class IntegrationService {
       sessionId: data.ticket?.sessionId,
       contact: data.ticket?.contact,
       message: data.message || '',
-      variables: config.variables || {}
+      variables: config.variables || {},
+      typebotSlug: integration.typebotSlug || config.typebotSlug
     };
 
     await axios.post(typebotUrl, payload, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': config.apiKey ? `Bearer ${config.apiKey}` : undefined
+        'Authorization': integration.apiKey || config.apiKey ? `Bearer ${integration.apiKey || config.apiKey}` : undefined
       },
       timeout: config.timeout || 10000
     });
