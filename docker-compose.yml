@@ -47,30 +47,30 @@ services:
       dockerfile: Dockerfile
     container_name: zazap_backend
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-zazap2}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASS=${DB_PASS:-99480231a}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - REDIS_DB=${REDIS_DB:-0}
-      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey}
-      - PORT=${PORT:-8081}
-      - HOST=${HOST:-0.0.0.0}
-  - FRONTEND_ORIGINS=${FRONTEND_ORIGINS:-http://${HOST_IP:-localhost}:${FRONTEND_PORT:-4000}}
-      - ACCESS_TOKEN_EXPIRY=${ACCESS_TOKEN_EXPIRY:-30m}
-      - REFRESH_TOKEN_EXPIRY=${REFRESH_TOKEN_EXPIRY:-7d}
-      - EXPOSE_REFRESH_TOKEN=${EXPOSE_REFRESH_TOKEN:-true}
-      - FORCE_INSECURE_COOKIES=${FORCE_INSECURE_COOKIES:-true}
-      - COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
-      - LOG_AUTH_VERBOSE=${LOG_AUTH_VERBOSE:-false}
-      - BAILEYS_AUTH_ROOT=${BAILEYS_AUTH_ROOT:-privated/baileys}
-      - VAPID_PUBLIC=${VAPID_PUBLIC:-BD7q4d1yPm_R7_sBpEYqsfO9QOJmmTmGOiUbVA4-fcvvrWfShU5g23zR5MD7ykKtjXaFyu-yM4ivpucEYxjMKWY}
-      - VAPID_PRIVATE=${VAPID_PRIVATE:-fZbUZzvTaI1mUgUV8fXb9GwvMbArjl173Hb_q3XRUJQ}
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-zazap2}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-99480231a}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey}
+      PORT: ${PORT:-8081}
+      HOST: ${HOST:-0.0.0.0}
+      FRONTEND_ORIGINS: "${FRONTEND_ORIGINS:-http://${HOST_IP:-localhost}:${FRONTEND_PORT:-4000}}"
+      ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY:-30m}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
+      EXPOSE_REFRESH_TOKEN: ${EXPOSE_REFRESH_TOKEN:-true}
+      FORCE_INSECURE_COOKIES: ${FORCE_INSECURE_COOKIES:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      LOG_AUTH_VERBOSE: ${LOG_AUTH_VERBOSE:-false}
+      BAILEYS_AUTH_ROOT: ${BAILEYS_AUTH_ROOT:-privated/baileys}
+      VAPID_PUBLIC: ${VAPID_PUBLIC:-BD7q4d1yPm_R7_sBpEYqsfO9QOJmmTmGOiUbVA4-fcvvrWfShU5g23zR5MD7ykKtjXaFyu-yM4ivpucEYxjMKWY}
+      VAPID_PRIVATE: ${VAPID_PRIVATE:-fZbUZzvTaI1mUgUV8fXb9GwvMbArjl173Hb_q3XRUJQ}
     ports:
       - "${PORT:-8081}:${PORT:-8081}"
     volumes:
@@ -97,8 +97,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_API_URL=http://${HOST_IP:-localhost}:${PORT:-8081}
-        - REACT_APP_SOCKET_URL=http://${HOST_IP:-localhost}:${PORT:-8081}
+        REACT_APP_API_URL: "http://${HOST_IP:-localhost}:${PORT:-8081}"
+        REACT_APP_SOCKET_URL: "http://${HOST_IP:-localhost}:${PORT:-8081}"
     container_name: zazap_frontend
     ports:
       - "${FRONTEND_PORT:-4000}:80"

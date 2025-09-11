@@ -1,5 +1,11 @@
--- Criar banco de dados se não existir
-CREATE DATABASE IF NOT EXISTS zazap2;
+-- Criar banco de dados se não existir (PostgreSQL)
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'zazap2') THEN
+      EXECUTE 'CREATE DATABASE zazap2';
+   END IF;
+END
+$$;
 
 -- Criar usuário se não existir
 DO $$ 

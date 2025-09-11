@@ -1,37 +1,42 @@
-FROM node:20-alpine as build
+# Frontend Dockerfile with React build
+FROM node:20-alpine AS build
 
-# Diretório de trabalho
 WORKDIR /app
 
-# Copiar package.json
-COPY package*.json ./
+# Copy package files and node_modules from host (installed locally to avoid network issues)
+COPY package.json ./
+COPY package-lock.json* ./
+COPY node_modules/ ./node_modules/
 
-# Instalar dependências
-RUN npm ci
+# Verify react-scripts is installed
+RUN ls -la node_modules/.bin/react-scripts || \
+    (echo "react-scripts not found, installing..." && npm install react-scripts --no-optional --legacy-peer-deps --timeout=60000)
 
-# Copiar código fonte
+# Copy source code
 COPY . .
 
-# Definir variáveis de ambiente para o build
-ARG REACT_APP_API_URL=http://localhost:8081
-ARG REACT_APP_SOCKET_URL=http://localhost:8081
-ENV REACT_APP_BACKEND_URL=$REACT_APP_API_URL
-ENV REACT_APP_SOCKET_URL=$REACT_APP_SOCKET_URL
+# Build arguments for environment variables
+ARG REACT_APP_BACKEND_URL=http://localhost:8081
+ARG PORT=4000
 
-# Build da aplicação
-RUN npm run build
+# Set build-time environment variables
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+ENV PORT=$PORT
 
-# Estágio de produção
+# Build the app using npx to ensure react-scripts is found
+RUN npx react-scripts build
+
+# Production stage with nginx
 FROM nginx:alpine
 
-# Copiar arquivos buildados
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copiar configuração customizada do nginx
+# Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expor porta 80
+# Copy built app from build stage
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Expose port
 EXPOSE 80
 
-# Comando padrão
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
