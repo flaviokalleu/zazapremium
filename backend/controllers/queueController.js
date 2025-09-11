@@ -38,7 +38,11 @@ export const createQueue = async (req, res) => {
 
     // Verificar se já existe fila com mesmo nome na sessão
     const existingQueue = await Queue.findOne({
-      where: { name, sessionId }
+      where: { 
+        name, 
+        sessionId,
+        companyId: req.user.companyId
+      }
     });
 
     if (existingQueue) {
@@ -83,6 +87,7 @@ export const createQueue = async (req, res) => {
 export const listQueues = async (req, res) => {
   try {
     const queues = await Queue.findAll({
+      where: { companyId: req.user.companyId },
       include: [
         {
           model: User,
@@ -186,6 +191,7 @@ export const getUserQueues = async (req, res) => {
   const userId = req.user.id;
   try {
     const queues = await Queue.findAll({
+      where: { companyId: req.user.companyId },
       include: [
         {
           model: User,
@@ -559,7 +565,8 @@ export const bulkActions = async (req, res) => {
 
     const queues = await Queue.findAll({
       where: {
-        id: queueIds
+        id: queueIds,
+        companyId: req.user.companyId
       }
     });
 

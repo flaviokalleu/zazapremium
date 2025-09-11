@@ -118,6 +118,18 @@ const Ticket = sequelize.define('Ticket', {
 }, {
   tableName: 'tickets',
   timestamps: true,
+  hooks: {
+    beforeCreate: async (ticket) => {
+      // Se companyId não foi fornecido, buscar da sessão
+      if (!ticket.companyId && ticket.sessionId) {
+        const { Session } = await import('./session.js');
+        const session = await Session.default.findByPk(ticket.sessionId);
+        if (session) {
+          ticket.companyId = session.companyId;
+        }
+      }
+    }
+  }
 });
 
 export default Ticket;

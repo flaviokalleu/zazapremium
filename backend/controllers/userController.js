@@ -142,6 +142,11 @@ export const getUsers = async (req, res) => {
       whereClause.companyId = req.companyId;
     }
 
+    // Garantir filtro por companyId se não for super_admin
+    if (req.user.role !== 'super_admin') {
+      whereClause.companyId = req.user.companyId;
+    }
+
     const users = await User.findAll({
       where: whereClause,
       attributes: ['id', 'name', 'email', 'role', 'isActive', 'companyId', 'createdAt', 'updatedAt'],

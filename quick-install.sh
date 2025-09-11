@@ -133,8 +133,8 @@ ACCESS_TYPE=$ACCESS_TYPE
 DB_NAME=$DB_NAME
 DB_USER=$DB_USER
 DB_PASS=$DB_PASSWORD
-DB_HOST=localhost
-DB_PORT=5433
+DB_HOST=postgres
+DB_PORT=5432
 
 # Redis
 REDIS_HOST=localhost
@@ -146,7 +146,7 @@ REDIS_DB=0
 HOST=0.0.0.0
 JWT_SECRET=$JWT_SECRET
 NODE_ENV=production
-FRONTEND_ORIGINS=http://$HOST_ADDRESS:$FRONTEND_PORT,http://localhost:$FRONTEND_PORT
+FRONTEND_URL=http://$HOST_ADDRESS:$FRONTEND_PORT,http://localhost:$FRONTEND_PORT
 
 # Autenticação
 ACCESS_TOKEN_EXPIRY=30m
@@ -180,32 +180,51 @@ app.get("/health", (req, res) => {\
     print_color $GREEN "✅ Health check adicionado!"
 fi
 
+# Detectar comando docker compose ou docker-compose
+if command -v docker-compose &>/dev/null; then
+    COMPOSE_CMD="docker-compose"
+elif docker compose version &>/dev/null; then
+    COMPOSE_CMD="docker compose"
+else
+    print_color $RED "❌ Nem 'docker-compose' nem 'docker compose' encontrados após tentativa de instalação."
+    print_color $YELLOW "Verifique a instalação manualmente e execute novamente."
+    exit 1
+fi
+
+print_color $BLUE "🧩 Usando comando Compose: $COMPOSE_CMD"
+
 # Construir e iniciar
 print_color $BLUE "🏗️  Construindo sistema (pode demorar alguns minutos)..."
 
-docker-compose down --remove-orphans 2>/dev/null || true
+$COMPOSE_CMD down --remove-orphans 2>/dev/null || true
 docker volume prune -f 2>/dev/null || true
 
 if [ "$USE_SSL" = true ]; then
     # Configurar para SSL/Nginx
-    docker-compose --profile nginx build
-    docker-compose --profile nginx up -d
+    $COMPOSE_CMD --profile nginx build
+    BUILD_STATUS=$?
+    $COMPOSE_CMD --profile nginx up -d
 else
     # Configurar sem SSL
-    docker-compose build
-    docker-compose up -d
+    $COMPOSE_CMD build
+    BUILD_STATUS=$?
+    $COMPOSE_CMD up -d
 fi
 
-if [ $? -ne 0 ]; then
+if [ $BUILD_STATUS -ne 0 ]; then
     print_color $RED "❌ Erro na construção!"
     echo
-    print_color $YELLOW "🔧 Comandos para debug:"
-    print_color $WHITE "   docker-compose logs backend"
-    print_color $WHITE "   docker-compose logs frontend"
+    print_color $YELLOW "🔧 Comandos para debug:" 
+    print_color $WHITE "   $COMPOSE_CMD logs backend"
+    print_color $WHITE "   $COMPOSE_CMD logs frontend"
     exit 1
 fi
 
 print_color $GREEN "✅ Containers iniciados!"
+
+# Executar setup SaaS (criação admin) dentro do backend
+print_color $BLUE "👤 Criando usuário admin padrão (se não existir)..."
+$COMPOSE_CMD exec backend node scripts/setup-saas.js >/dev/null 2>&1 || print_color $YELLOW "⚠️  Não foi possível executar setup-saas agora (será possível manualmente)."
 
 # Aguardar serviços
 print_color $BLUE "⏳ Aguardando serviços ficarem prontos..."
@@ -213,7 +232,7 @@ print_color $BLUE "⏳ Aguardando serviços ficarem prontos..."
 # PostgreSQL
 print_color $YELLOW "🗄️  Aguardando PostgreSQL..."
 for i in {1..30}; do
-    if docker-compose exec -T postgres pg_isready -U $DB_USER -d $DB_NAME &>/dev/null; then
+    if $COMPOSE_CMD exec -T postgres pg_isready -U $DB_USER -d $DB_NAME &>/dev/null; then
         print_color $GREEN "✅ PostgreSQL pronto!"
         break
     fi
@@ -224,7 +243,7 @@ done
 # Redis
 print_color $YELLOW "🔴 Aguardando Redis..."
 for i in {1..15}; do
-    if docker-compose exec -T redis redis-cli ping &>/dev/null; then
+    if $COMPOSE_CMD exec -T redis redis-cli ping &>/dev/null; then
         print_color $GREEN "✅ Redis pronto!"
         break
     fi
@@ -252,11 +271,13 @@ echo
 # Executar migrações
 print_color $BLUE "📊 Executando migrações do banco..."
 sleep 5
-docker-compose exec backend npm run db:migrate 2>/dev/null && print_color $GREEN "✅ Migrações executadas!" || print_color $YELLOW "⚠️  Migrações podem ter falhado"
+# Migrações (já executadas no start.sh, mas repetimos por garantia)
+$COMPOSE_CMD exec backend npm run db:migrate 2>/dev/null && print_color $GREEN "✅ Migrações executadas!" || print_color $YELLOW "⚠️  Migrações podem ter falhado"
 
 # Executar seeds
 print_color $BLUE "🌱 Executando seeds..."
-docker-compose exec backend npm run db:seed 2>/dev/null && print_color $GREEN "✅ Seeds executados!" || print_color $YELLOW "⚠️  Seeds opcionais"
+# Seeds (idempotentes)
+$COMPOSE_CMD exec backend npm run db:seed 2>/dev/null && print_color $GREEN "✅ Seeds executados!" || print_color $YELLOW "⚠️  Seeds opcionais"
 
 echo
 print_color $GREEN "🎉 INSTALAÇÃO CONCLUÍDA!"

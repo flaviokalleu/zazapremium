@@ -47,7 +47,7 @@ export const ingestInboundMessage = async (data = {}) => {
       return;
     }
     
-    // Localizar sessão
+    // Localizar sessão (sem filtro de companyId pois pode vir de webhook externo)
     const session = await Session.findOne({ where: { whatsappId: sessionKey } });
     if (!session) {
       console.error('[MultiChannelIngest] ❌ Sessão não encontrada:', sessionKey);
@@ -62,13 +62,14 @@ export const ingestInboundMessage = async (data = {}) => {
     const contactKey = buildContactKey(channel, fromId);
     console.log('[MultiChannelIngest] 🔑 Chave do contato gerada:', contactKey);
     
-    // Buscar ou criar contato
-    let contact = await Contact.findOne({ where: { whatsappId: contactKey } });
+    // Buscar ou criar contato (filtrar por sessionId para isolamento)
+    let contact = await Contact.findOne({ where: { whatsappId: contactKey, sessionId: session.id } });
     if (!contact) {
       console.log('[MultiChannelIngest] 📝 Criando novo contato...');
       contact = await Contact.create({
         whatsappId: contactKey,
         sessionId: session.id,
+        companyId: session.companyId,
         name: fromName || contactKey,
         pushname: fromName || null,
         isGroup: false,
@@ -103,6 +104,7 @@ export const ingestInboundMessage = async (data = {}) => {
         contact: contactKey,
         contactId: contact.id,
         sessionId: session.id,
+        companyId: session.companyId,
         status: 'pending',
         chatStatus: 'waiting',
         unreadCount: 1,

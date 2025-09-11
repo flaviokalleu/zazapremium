@@ -153,8 +153,8 @@ const handleBaileysMessage = async (message, sessionId) => {
 
   console.log(`📞 [BAILEYS] Contact ID normalizado: ${contactId} (original: ${message.key.remoteJid}, senderPn: ${message.key?.senderPn || 'N/A'})`);
 
-    // Buscar ou criar contato
-    let contact = await Contact.findOne({ where: { whatsappId: contactId } });
+    // Buscar ou criar contato (filtrar por sessionId para isolamento)
+    let contact = await Contact.findOne({ where: { whatsappId: contactId, sessionId: sessionRecord.id } });
     if (!contact) {
       // Extrair número limpo para nome se não houver pushName
       const sourceForNumber = contactId; // já é pnNorm quando disponível
@@ -165,6 +165,7 @@ const handleBaileysMessage = async (message, sessionId) => {
       contact = await Contact.create({
         whatsappId: contactId, // Mantém normalizado para consistência no banco
         sessionId: sessionRecord.id, // Usar ID numérico da sessão
+        companyId: sessionRecord.companyId,
         name: contactName,
         pushname: message.pushName, // Nome do WhatsApp
         formattedNumber: cleanNumber, // Número limpo sem @lid/@s.whatsapp.net
@@ -228,6 +229,7 @@ const handleBaileysMessage = async (message, sessionId) => {
         chatStatus: 'waiting',      // necessário para aparecer em "aguardando"
         unreadCount: 1,
         sessionId: actualSessionId,
+        companyId: sessionRecord.companyId,
         queueId: defaultQueueId,
         lastMessage: incomingContent || null,
         channel: 'whatsapp'
@@ -520,8 +522,8 @@ export const handleWwebjsMessage = async (msg, sessionKey) => {
 
     console.log(`👤 [WWEBJS] Contact ID: ${contactId} (grupo: ${isGroup})`);
 
-    // Buscar/criar contato
-    let contact = await Contact.findOne({ where: { whatsappId: contactId } });
+    // Buscar/criar contato (filtrar por sessionId para isolamento)
+    let contact = await Contact.findOne({ where: { whatsappId: contactId, sessionId: session.id } });
     if (!contact) {
       const clean = contactId.split('@')[0];
       let contactName = clean;
@@ -536,6 +538,7 @@ export const handleWwebjsMessage = async (msg, sessionKey) => {
       contact = await Contact.create({
         whatsappId: contactId,
         sessionId: session.id,
+        companyId: session.companyId,
         name: contactName,
         pushname: contactName,
         isGroup: isGroup,
@@ -560,6 +563,7 @@ export const handleWwebjsMessage = async (msg, sessionKey) => {
         contact: contactId,
         contactId: contact.id,
         sessionId: session.id,
+        companyId: session.companyId,
         status: 'open',
         chatStatus: 'waiting',
         unreadCount: 1,

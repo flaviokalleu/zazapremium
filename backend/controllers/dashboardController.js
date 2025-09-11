@@ -159,7 +159,14 @@ export async function getDashboardStats(req, res) {
         const userIds = Array.from(byUserMap.keys()).filter(id => id !== 0);
         let usersData = [];
         if (userIds.length) {
-          const users = await User.findAll({ where: { id: userIds }, attributes: ['id','name'], raw: true });
+          const users = await User.findAll({ 
+            where: { 
+              id: userIds,
+              companyId: req.user.companyId
+            }, 
+            attributes: ['id','name'], 
+            raw: true 
+          });
           usersData = users;
         }
         npsByUser = Array.from(byUserMap.entries()).map(([uid, arr]) => {

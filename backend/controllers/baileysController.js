@@ -16,10 +16,17 @@ export const initSession = async (req, res) => {
     const baseNumber = normalizeSessionId(sessionId);
 
     // Buscar ou criar sessão no banco de dados usando apenas o número base
-    let session = await Session.findOne({ where: { whatsappId: baseNumber } });
+    let session = await Session.findOne({ 
+      where: { 
+        whatsappId: baseNumber,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       session = await Session.create({
         userId: req.user.id,
+        companyId: req.user.companyId || 1,
         whatsappId: baseNumber, // Sempre salvar apenas o número base
         library: 'baileys',
         status: 'disconnected'
@@ -86,7 +93,13 @@ export const sendTextMessage = async (req, res) => {
     const baseNumber = normalizeSessionId(sessionId);
 
     // Buscar sessão no banco usando apenas o número base
-    const session = await Session.findOne({ where: { whatsappId: baseNumber } });
+    const session = await Session.findOne({ 
+      where: { 
+        whatsappId: baseNumber,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       return res.status(404).json({ error: 'Sessão não encontrada' });
     }
@@ -104,6 +117,7 @@ export const sendTextMessage = async (req, res) => {
     if (!ticket) {
       ticket = await Ticket.create({
         sessionId: session.id, // Usar o ID numérico da sessão
+        companyId: session.companyId,
         contact: to,
         lastMessage: text,
         unreadCount: 0
@@ -136,13 +150,20 @@ export const sendMediaMessage = async (req, res) => {
     await sendMedia(baseNumber, to, buffer, mimetype); // Usar apenas o número base
 
     // Buscar sessão para obter o ID numérico
-    const session = await Session.findOne({ where: { whatsappId: baseNumber } });
+    const session = await Session.findOne({ 
+      where: { 
+        whatsappId: baseNumber,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       return res.status(404).json({ error: 'Sessão não encontrada' });
     }
 
     await Ticket.create({
       sessionId: session.id, // Usar o ID numérico da sessão
+      companyId: session.companyId,
       contact: to,
       lastMessage: mimetype,
       unreadCount: 0

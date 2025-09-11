@@ -94,7 +94,8 @@ const authenticateSocket = async (socket, next) => {
 };
 
 export const initializeSocket = (server) => {
-  const raw = process.env.FRONTEND_ORIGINS || process.env.FRONTEND_URL || '';
+  // Usar apenas FRONTEND_URL (pode conter múltiplos separados por vírgula)
+  const raw = process.env.FRONTEND_URL || '';
   const allowed = raw
     .split(',')
     .map(s => s.trim())

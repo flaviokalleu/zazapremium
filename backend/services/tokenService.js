@@ -17,7 +17,8 @@ export class TokenService {
         userId: user.id, 
         email: user.email,
         role: user.role,
-        name: user.name 
+  name: user.name,
+  companyId: user.companyId
       },
       JWT_SECRET,
       { expiresIn: ACCESS_TOKEN_EXPIRY }

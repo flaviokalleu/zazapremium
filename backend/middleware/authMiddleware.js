@@ -23,7 +23,7 @@ async function authenticateViaRefreshToken(req, res, next, refreshToken) {
     // Decodificar o token para obter dados do usuário
     const decoded = TokenService.verifyAccessToken(accessToken);
     const id = decoded.id || decoded.userId;
-    req.user = { ...decoded, id };
+  req.user = { ...decoded, id, companyId: decoded.companyId || decoded.company_id || 1 };
     
     console.log('[auth] Autenticado via refresh token para usuário:', req.user.name);
     next();
@@ -78,7 +78,7 @@ export default function authMiddleware(req, res, next) {
     const decoded = TokenService.verifyAccessToken(token);
     // Normalize user shape so controllers can rely on req.user.id
     const id = decoded.id || decoded.userId;
-    req.user = { ...decoded, id };
+  req.user = { ...decoded, id, companyId: decoded.companyId || decoded.company_id || 1 };
     
     if (!req.user.id) {
       // If token does not carry an id, reject

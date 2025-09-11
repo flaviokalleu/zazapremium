@@ -182,6 +182,12 @@ const createOrUpdateContactBaileys = async (whatsappId, sessionId, sock) => {
   try {
     console.log(`👤 Criando/atualizando contato Baileys: ${whatsappId} na sessão: ${sessionId}`);
     
+    // Buscar sessão para obter companyId
+    const session = await Session.findByPk(sessionId);
+    if (!session) {
+      throw new Error(`Sessão ${sessionId} não encontrada`);
+    }
+    
     // Buscar contato existente
     let contact = await Contact.findOne({
       where: {
@@ -216,6 +222,7 @@ const createOrUpdateContactBaileys = async (whatsappId, sessionId, sock) => {
     const contactData = {
       whatsappId,
       sessionId,
+      companyId: session.companyId,
       // Só definir name/pushname se houver valor novo; caso contrário preservamos existente
       ...(contactInfo?.notify ? { name: contactInfo.notify } : {}),
       ...(contactInfo?.notify ? { pushname: contactInfo.notify } : {}),
@@ -763,12 +770,14 @@ export const createBaileysSession = async (sessionId, onQR, onReady, onMessage) 
                     const jid = chat.id;
                     try {
                       // Verificar se já existe ticket aberto para este contato
-                      const existing = await Ticket.findOne({ where: { contact: jid } });
+                      const existing = await Ticket.findOne({ where: { contact: jid, sessionId: sessionRecord.id } });
                       if (!existing) {
-                        let contact = await Contact.findOne({ where: { whatsappId: jid } });
+                        let contact = await Contact.findOne({ where: { whatsappId: jid, sessionId: sessionRecord.id } });
                         if (!contact) {
                           contact = await Contact.create({
                             whatsappId: jid,
+                            sessionId: sessionRecord.id,
+                            companyId: sessionRecord.companyId,
                             name: chat.name || chat.subject || jid.split('@')[0],
                             pushname: chat.name || null,
                             isGroup: false
@@ -778,6 +787,7 @@ export const createBaileysSession = async (sessionId, onQR, onReady, onMessage) 
                           contact: jid,
                           contactId: contact.id,
                           sessionId: sessionRecord.id,
+                          companyId: sessionRecord.companyId,
                           status: 'open',
                           chatStatus: 'waiting',
                           lastMessage: null,
@@ -991,6 +1001,7 @@ export const sendText = async (sessionId, to, text) => {
                   if (!ticket) {
                     ticket = await Ticket.create({
                       sessionId: session.id,
+                      companyId: session.companyId,
                       contact: jid,
                       lastMessage: text,
                       unreadCount: 0,
@@ -1071,6 +1082,7 @@ export const sendText = async (sessionId, to, text) => {
         if (!ticket) {
           ticket = await Ticket.create({
             sessionId: session.id,
+            companyId: session.companyId,
             contact: jid,
             lastMessage: text,
             unreadCount: 0,

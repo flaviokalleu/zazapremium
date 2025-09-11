@@ -57,10 +57,17 @@ export const initMultiChannelSession = async (req, res) => {
     }
 
     // Criar ou localizar session
-    let session = await Session.findOne({ where: { whatsappId: sessionId } });
+    let session = await Session.findOne({ 
+      where: { 
+        whatsappId: sessionId,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       session = await Session.create({
         userId: req.user.id,
+        companyId: req.user.companyId || 1,
         whatsappId: sessionId,
         library: channel === 'whatsapp' ? 'baileys' : 'custom',
         channel,
@@ -107,7 +114,13 @@ export const initMultiChannelSession = async (req, res) => {
 export const sendMultiChannelText = async (req, res) => {
   const { sessionId, to, text } = req.body;
   try {
-    const session = await Session.findOne({ where: { whatsappId: sessionId } });
+    const session = await Session.findOne({ 
+      where: { 
+        whatsappId: sessionId,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) return res.status(404).json({ error: 'Sessão não encontrada' });
     const handler = channelHandlers[session.channel];
     if (!handler) return res.status(400).json({ error: 'Canal não suportado' });
@@ -117,7 +130,7 @@ export const sendMultiChannelText = async (req, res) => {
     // Salvar ticket e mensagem (básico)
     let ticket = await Ticket.findOne({ where: { contact: to, sessionId: session.id } });
     if (!ticket) {
-      ticket = await Ticket.create({ contact: to, sessionId: session.id, lastMessage: text, channel: session.channel });
+      ticket = await Ticket.create({ contact: to, sessionId: session.id, companyId: session.companyId, lastMessage: text, channel: session.channel });
     } else {
       await ticket.update({ lastMessage: text });
     }
@@ -133,7 +146,13 @@ export const sendMultiChannelMedia = async (req, res) => {
   const { sessionId, to } = req.body;
   const file = req.file; // usar multer
   try {
-    const session = await Session.findOne({ where: { whatsappId: sessionId } });
+    const session = await Session.findOne({ 
+      where: { 
+        whatsappId: sessionId,
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) return res.status(404).json({ error: 'Sessão não encontrada' });
     const handler = channelHandlers[session.channel];
     if (!handler) return res.status(400).json({ error: 'Canal não suportado' });
@@ -142,7 +161,7 @@ export const sendMultiChannelMedia = async (req, res) => {
 
     let ticket = await Ticket.findOne({ where: { contact: to, sessionId: session.id } });
     if (!ticket) {
-      ticket = await Ticket.create({ contact: to, sessionId: session.id, lastMessage: file?.originalname, channel: session.channel });
+      ticket = await Ticket.create({ contact: to, sessionId: session.id, companyId: session.companyId, lastMessage: file?.originalname, channel: session.channel });
     } else {
       await ticket.update({ lastMessage: file?.originalname });
     }

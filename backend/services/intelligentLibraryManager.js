@@ -161,6 +161,7 @@ class IntelligentLibraryManager {
             library,
             channel: options.channel || 'whatsapp',
             userId: options.userId || 1,
+            companyId: options.companyId || 1,
             status: 'connecting'
           });
         }

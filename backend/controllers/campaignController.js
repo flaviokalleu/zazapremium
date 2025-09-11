@@ -99,7 +99,13 @@ export const getCampaigns = async (req, res) => {
       where: whereClause,
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Session, as: 'session', attributes: ['id', 'whatsappId', 'status'] }
+        { 
+          model: Session, 
+          as: 'session', 
+          attributes: ['id', 'whatsappId', 'status'],
+          where: { companyId: req.user.companyId },
+          required: true
+        }
       ],
       order: [[sortBy, sortOrder.toUpperCase()]],
       limit: parseInt(limit),
@@ -130,7 +136,13 @@ export const getCampaignById = async (req, res) => {
       where: { id, isActive: true },
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Session, as: 'session', attributes: ['id', 'whatsappId', 'status'] }
+        { 
+          model: Session, 
+          as: 'session', 
+          attributes: ['id', 'whatsappId', 'status'],
+          where: { companyId: req.user.companyId },
+          required: true
+        }
       ]
     });
 
@@ -152,7 +164,16 @@ export const updateCampaign = async (req, res) => {
     const updateData = req.body;
 
     const campaign = await Campaign.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true },
+      include: [
+        {
+          model: Session,
+          as: 'session',
+          where: { companyId: req.user.companyId },
+          required: true,
+          attributes: []
+        }
+      ]
     });
 
     if (!campaign) {

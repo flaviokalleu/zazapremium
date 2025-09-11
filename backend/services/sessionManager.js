@@ -18,15 +18,19 @@ const normalizeSessionId = (sessionId) => {
 };
 
 // Função para encontrar sessão no banco usando base normalizada
-const findSessionByBaseNumber = async (whatsappId) => {
+const findSessionByBaseNumber = async (whatsappId, companyId = null) => {
   const baseNumber = normalizeSessionId(whatsappId);
   
   // Primeiro tentar busca exata
-  let session = await Session.findOne({ where: { whatsappId } });
+  const whereClause = { whatsappId };
+  if (companyId) whereClause.companyId = companyId;
+  
+  let session = await Session.findOne({ where: whereClause });
   
   if (!session) {
     // Se não encontrar, buscar por base number
-    const allSessions = await Session.findAll();
+    const allWhereClause = companyId ? { companyId } : {};
+    const allSessions = await Session.findAll({ where: allWhereClause });
     session = allSessions.find(s => normalizeSessionId(s.whatsappId) === baseNumber);
     
     if (session) {
@@ -168,11 +172,19 @@ const reactivateSession = async (session) => {
 };
 
 // Função para sincronizar status de todas as sessões
-export const syncAllSessions = async () => {
+export const syncAllSessions = async (companyId = null) => {
   try {
+    // Verificar se a conexão do Sequelize ainda está ativa
+    const { sequelize } = await import('../services/sequelize.js');
+    if (!sequelize || sequelize.connectionManager._closed) {
+      console.log('🔄 SyncAllSessions: Conexão com banco fechada, interrompendo');
+      return;
+    }
+
     console.log('🔄 Sincronizando status de todas as sessões...');
 
-    const sessions = await Session.findAll();
+    const whereClause = companyId ? { companyId } : {};
+    const sessions = await Session.findAll({ where: whereClause });
     let reconnectedCount = 0;
     let disconnectedCount = 0;
 
@@ -251,9 +263,18 @@ export const syncAllSessions = async () => {
 };
 
 // Função para emitir atualizações de sessões
-const emitSessionsUpdate = async () => {
+const emitSessionsUpdate = async (companyId = null) => {
   try {
+    // Verificar se a conexão do Sequelize ainda está ativa
+    const { sequelize } = await import('../services/sequelize.js');
+    if (!sequelize || sequelize.connectionManager._closed) {
+      console.log('🔄 EmitSessionsUpdate: Conexão com banco fechada, interrompendo');
+      return;
+    }
+
+    const whereClause = companyId ? { companyId } : {};
     const sessions = await Session.findAll({
+      where: whereClause,
       order: [['createdAt', 'DESC']]
     });
 
@@ -270,21 +291,42 @@ const emitSessionsUpdate = async () => {
 };
 
 // Função para verificar sessões periodicamente (a cada 5 minutos)
+let healthCheckTimer = null;
+
 export const startSessionHealthCheck = () => {
+  if (healthCheckTimer) return;
   console.log('🏥 Iniciando verificação de saúde das sessões (a cada 5 minutos)...');
   
-  setInterval(async () => {
-    console.log('🏥 Executando verificação de saúde das sessões...');
-    await syncAllSessions();
+  healthCheckTimer = setInterval(async () => {
+    try {
+      console.log('🏥 Executando verificação de saúde das sessões...');
+      await syncAllSessions();
+    } catch (error) {
+      if (error.message.includes('ConnectionManager.getConnection was called after')) {
+        console.log('🏥 Conexão com banco foi fechada, parando health check');
+        stopSessionHealthCheck();
+        return;
+      }
+      console.error('❌ Erro no health check das sessões:', error.message);
+    }
   }, 5 * 60 * 1000); // 5 minutos
 };
 
+export const stopSessionHealthCheck = () => {
+  if (healthCheckTimer) {
+    clearInterval(healthCheckTimer);
+    healthCheckTimer = null;
+    console.log('🏥 Health check das sessões parado');
+  }
+};
+
 // Função para reconectar automaticamente sessões ao iniciar
-export const autoReconnectSessions = async () => {
+export const autoReconnectSessions = async (companyId = null) => {
   try {
     console.log('🚀 Iniciando reconexão automática de sessões...');
     // Buscar todas as sessões
-    const all = await Session.findAll();
+    const whereClause = companyId ? { companyId } : {};
+    const all = await Session.findAll({ where: whereClause });
     // Incluir conectadas ou que tenham importAllChats (porque o usuário espera fluxo de import)
     const target = all.filter(s => {
       const st = String(s.status || '').toLowerCase();

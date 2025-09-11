@@ -5,7 +5,13 @@ class CampaignService {
   
   // Processar contatos da campanha com base na segmentação
   async processCampaignContacts(campaignId) {
-    const campaign = await Campaign.findByPk(campaignId);
+    const campaign = await Campaign.findByPk(campaignId, {
+      include: [{
+        model: Session,
+        required: true,
+        attributes: ['companyId']
+      }]
+    });
     
     if (!campaign) {
       throw new Error('Campanha não encontrada');
@@ -16,6 +22,11 @@ class CampaignService {
     switch (campaign.segmentationType) {
       case 'all':
         contacts = await Contact.findAll({
+          include: [{
+            model: Session,
+            required: true,
+            where: { companyId: campaign.Session.companyId }
+          }],
           where: { isActive: true },
           attributes: ['id', 'name', 'phoneNumber']
         });
@@ -28,17 +39,25 @@ class CampaignService {
 
         // Buscar contatos através dos tickets que têm as tags especificadas
         const taggedTickets = await Ticket.findAll({
-          include: [{
-            model: Tag,
-            as: 'tags',
-            where: { id: { [Op.in]: campaign.tagIds } },
-            through: { attributes: [] }
-          }, {
-            model: Contact,
-            as: 'contact',
-            where: { isActive: true },
-            attributes: ['id', 'name', 'phoneNumber']
-          }],
+          include: [
+            {
+              model: Tag,
+              as: 'tags',
+              where: { id: { [Op.in]: campaign.tagIds } },
+              through: { attributes: [] }
+            },
+            {
+              model: Contact,
+              as: 'contact',
+              where: { isActive: true },
+              attributes: ['id', 'name', 'phoneNumber']
+            },
+            {
+              model: Session,
+              required: true,
+              where: { companyId: campaign.Session.companyId }
+            }
+          ],
           attributes: ['id']
         });
 
@@ -58,6 +77,11 @@ class CampaignService {
         }
 
         contacts = await Contact.findAll({
+          include: [{
+            model: Session,
+            required: true,
+            where: { companyId: campaign.Session.companyId }
+          }],
           where: { 
             id: { [Op.in]: campaign.contactIds },
             isActive: true 

@@ -1,9 +1,9 @@
-import { Ticket, Queue, Contact, User, TicketMessage, Tag } from '../models/index.js';
+import { Ticket, Queue, Contact, User, TicketMessage, Tag, Session } from '../models/index.js';
 import { emitToAll } from './socket.js';
 
 // Emite a lista completa de tickets com relacionamentos e última mensagem
 // Único ponto central para manter o frontend sincronizado ("tickets-update")
-export const emitTicketsUpdate = async () => {
+export const emitTicketsUpdate = async (companyId = null) => {
   try {
     console.log('📡 [TICKETS-BROADCAST] Iniciando emitTicketsUpdate...');
     const tickets = await Ticket.findAll({
@@ -11,7 +11,13 @@ export const emitTicketsUpdate = async () => {
         { model: Contact, required: false },
         { model: Queue, required: false },
         { model: User, as: 'AssignedUser', required: false },
-        { model: Tag, as: 'tags', through: { attributes: ['addedAt'] }, required: false }
+        { model: Tag, as: 'tags', through: { attributes: ['addedAt'] }, required: false },
+        ...(companyId ? [{
+          model: Session,
+          required: true,
+          where: { companyId },
+          attributes: []
+        }] : [])
       ],
       order: [['updatedAt', 'DESC']]
     });

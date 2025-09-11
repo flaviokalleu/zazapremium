@@ -17,6 +17,11 @@ const Contact = sequelize.define('Contact', {
     allowNull: false,
     comment: 'ID da sessão WhatsApp'
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: 'ID da empresa'
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -67,11 +72,26 @@ const Contact = sequelize.define('Contact', {
       fields: ['sessionId']
     },
     {
+      fields: ['companyId']
+    },
+    {
       unique: true,
       fields: ['whatsappId', 'sessionId'],
       name: 'contacts_whatsapp_session_unique'
     }
-  ]
+  ],
+  hooks: {
+    beforeCreate: async (contact) => {
+      // Se companyId não foi fornecido, buscar da sessão
+      if (!contact.companyId && contact.sessionId) {
+        const { Session } = await import('./session.js');
+        const session = await Session.default.findByPk(contact.sessionId);
+        if (session) {
+          contact.companyId = session.companyId;
+        }
+      }
+    }
+  }
 });
 
 export default Contact;

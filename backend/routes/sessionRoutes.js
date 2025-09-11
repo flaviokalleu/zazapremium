@@ -22,9 +22,11 @@ import { sessionQRs, sessionStatus } from '../services/sessionState.js';
 const router = express.Router();
 
 // Função para emitir atualizações de sessões via WebSocket
-const emitSessionsUpdate = async () => {
+const emitSessionsUpdate = async (companyId = null) => {
   try {
+    const whereClause = companyId ? { companyId } : {};
     const sessions = await Session.findAll({
+      where: whereClause,
       order: [['createdAt', 'DESC']]
     });
 
@@ -45,7 +47,10 @@ const emitSessionsUpdate = async () => {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const sessions = await Session.findAll({
-      where: { userId: req.user.id },
+      where: { 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      },
       order: [['createdAt', 'DESC']]
     });
 
@@ -74,7 +79,11 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Verificar se já existe uma sessão com esse whatsappId
     const existingSession = await Session.findOne({
-      where: { whatsappId, userId: req.user.id }
+      where: { 
+        whatsappId, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      }
     });
 
     if (existingSession) {
@@ -84,6 +93,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // Criar sessão no banco
     const session = await Session.create({
       userId: req.user.id,
+      companyId: req.user.companyId || 1,
       whatsappId,
       name: name || null,
       library,
@@ -110,7 +120,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
   const { defaultQueueId, status, importAllChats, importFromDate, importToDate } = req.body;
     console.log(`🛠️ [PUT /sessions/${id}] User=${req.user?.id} Body=`, req.body);
 
-    const session = await Session.findOne({ where: { id, userId: req.user.id } });
+    const session = await Session.findOne({ 
+      where: { 
+        id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       console.log(`⚠️ Sessão id=${id} não encontrada para user=${req.user?.id}`);
       return res.status(404).json({ error: 'Sessão não encontrada para este usuário' });
@@ -255,7 +271,13 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
 // POST /api/sessions/:id/cancel-import - Cancelar importação em andamento
 router.post('/:id/cancel-import', authMiddleware, async (req, res) => {
   try {
-    const session = await Session.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const session = await Session.findOne({ 
+      where: { 
+        id: req.params.id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      } 
+    });
     if (!session) {
       return res.status(404).json({ error: 'Sessão não encontrada' });
     }
@@ -271,7 +293,11 @@ router.post('/:id/cancel-import', authMiddleware, async (req, res) => {
 router.get('/:id/qr', authMiddleware, async (req, res) => {
   try {
     const session = await Session.findOne({
-      where: { id: req.params.id, userId: req.user.id }
+      where: { 
+        id: req.params.id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      }
     });
 
     if (!session) {
@@ -296,7 +322,11 @@ router.get('/:id/qr', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const session = await Session.findOne({
-      where: { id: req.params.id, userId: req.user.id }
+      where: { 
+        id: req.params.id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      }
     });
 
     if (!session) {
@@ -340,7 +370,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.post('/:id/restart', authMiddleware, async (req, res) => {
   try {
     const session = await Session.findOne({
-      where: { id: req.params.id, userId: req.user.id }
+      where: { 
+        id: req.params.id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      }
     });
 
     if (!session) {
@@ -460,7 +494,11 @@ router.post('/:id/restart', authMiddleware, async (req, res) => {
 router.post('/:id/shutdown', authMiddleware, async (req, res) => {
   try {
     const session = await Session.findOne({
-      where: { id: req.params.id, userId: req.user.id }
+      where: { 
+        id: req.params.id, 
+        userId: req.user.id,
+        companyId: req.user.companyId
+      }
     });
 
     if (!session) {

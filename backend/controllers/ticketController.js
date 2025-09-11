@@ -1,5 +1,5 @@
 
-import { Ticket, Queue, Contact, User, TicketMessage, TicketComment, MessageReaction, Tag, TicketTag, Integration, Setting } from '../models/index.js';
+import { Ticket, Queue, Contact, User, TicketMessage, TicketComment, MessageReaction, Tag, TicketTag, Integration, Setting, Session } from '../models/index.js';
 import { Op } from 'sequelize';
 import { emitToAll } from '../services/socket.js';
 import emitTicketsUpdateShared from '../services/ticketBroadcast.js';
@@ -97,6 +97,12 @@ export const listTickets = async (req, res) => {
     const tickets = await Ticket.findAll({
       where,
       include: [
+        {
+          model: Session,
+          required: true, // INNER JOIN para garantir que ticket pertence a uma sessão da empresa
+          where: { companyId: req.user.companyId },
+          attributes: [] // Não precisamos dos dados da sessão, só do filtro
+        },
         {
           model: Contact,
           required: false, // LEFT JOIN para incluir tickets sem contato vinculado
@@ -976,7 +982,15 @@ export const permanentDeleteTicket = async (req, res) => {
     
     // 6. Buscar e remover TODOS os tickets deste contato (mesmo número em outras sessões)
     const allContactTickets = await Ticket.findAll({
-      where: { contact: contactPhone }
+      where: { contact: contactPhone },
+      include: [
+        {
+          model: Session,
+          required: true,
+          where: { companyId: req.user.companyId },
+          attributes: []
+        }
+      ]
     });
     
     console.log(`🎫 Encontrados ${allContactTickets.length} tickets para o contato ${contactPhone}`);
@@ -1100,7 +1114,7 @@ export const createTicket = async (req, res) => {
           name: contact_name || null,
           pushname: contact_name || null,
           formattedNumber: contact_number,
-          companyId: req.companyId // Adicionar empresa ao contato
+          companyId: req.user.companyId // Adicionar empresa ao contato
         });
       }
     }
@@ -1113,7 +1127,7 @@ export const createTicket = async (req, res) => {
       contact: whatsappId,
       status: status || 'open',
       chatStatus: 'waiting',
-      companyId: req.companyId // Adicionar empresa ao ticket
+      companyId: req.user.companyId // Adicionar empresa ao ticket
     });
 
     // Buscar ticket com associações para retorno

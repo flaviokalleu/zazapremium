@@ -16,7 +16,12 @@ export const listSchedules = async (req, res) => {
       where,
       order: [['sendAt', 'ASC']],
       include: [
-        { model: Session, attributes: ['id', 'whatsappId'] },
+        { 
+          model: Session, 
+          attributes: ['id', 'whatsappId'],
+          where: { companyId: req.user.companyId },
+          required: true
+        },
         { model: Contact, attributes: ['id', 'name', 'whatsappId'] }
       ]
     });

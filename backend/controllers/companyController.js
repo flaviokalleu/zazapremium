@@ -21,7 +21,8 @@ const getAllCompanies = async (req, res) => {
         {
           model: User,
           as: 'users',
-          attributes: ['id', 'name', 'email', 'role']
+          attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt'],
+          order: [['role', 'ASC'], ['createdAt', 'ASC']] // Admin primeiro, depois por ordem de criação
         }
       ],
       limit: parseInt(limit),
@@ -47,11 +48,36 @@ const getAllCompanies = async (req, res) => {
 // Criar nova empresa
 const createCompany = async (req, res) => {
   try {
-    const { name, email, phone, plan = 'basic', maxUsers = 5, maxQueues = 3 } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      plan = 'basic', 
+      maxUsers = 5, 
+      maxQueues = 3,
+      // Dados do responsável
+      adminName,
+      adminEmail,
+      adminPassword
+    } = req.body;
 
+    // Validações básicas da empresa
     if (!name || !email) {
       return res.status(400).json({ 
-        error: 'Nome e email são obrigatórios' 
+        error: 'Nome e email da empresa são obrigatórios' 
+      });
+    }
+
+    // Validações do responsável
+    if (!adminName || !adminEmail || !adminPassword) {
+      return res.status(400).json({ 
+        error: 'Nome, email e senha do responsável são obrigatórios' 
+      });
+    }
+
+    if (adminPassword.length < 6) {
+      return res.status(400).json({ 
+        error: 'A senha do responsável deve ter pelo menos 6 caracteres' 
       });
     }
 
@@ -63,6 +89,19 @@ const createCompany = async (req, res) => {
       });
     }
 
+    // Verificar se já existe usuário com o email do responsável
+    const existingUser = await User.findOne({ where: { email: adminEmail } });
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: 'Já existe um usuário com este email' 
+      });
+    }
+
+    // Importar bcrypt para hash da senha
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.hash(adminPassword, 12);
+
+    // Criar empresa
     const company = await Company.create({
       name,
       email,
@@ -73,7 +112,29 @@ const createCompany = async (req, res) => {
       isActive: true
     });
 
-    res.status(201).json(company);
+    // Criar usuário responsável
+    const adminUser = await User.create({
+      name: adminName,
+      email: adminEmail,
+      password: hashedPassword,
+      role: 'admin',
+      companyId: company.id,
+      isActive: true,
+      isMasterAdmin: false
+    });
+
+    // Retornar empresa criada com dados do responsável (sem senha)
+    const responseData = {
+      ...company.toJSON(),
+      admin: {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role
+      }
+    };
+
+    res.status(201).json(responseData);
   } catch (error) {
     console.error('Erro ao criar empresa:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -121,7 +182,13 @@ const getCompanyById = async (req, res) => {
 const updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const { 
+      adminId,
+      adminName, 
+      adminEmail, 
+      adminPassword,
+      ...updateData 
+    } = req.body;
 
     // Não permitir alterar o ID
     delete updateData.id;
@@ -146,9 +213,88 @@ const updateCompany = async (req, res) => {
       }
     }
 
+    // Atualizar dados da empresa
     await company.update(updateData);
 
-    res.json(company);
+    // Se tem dados do administrador para atualizar
+    if (adminName || adminEmail || adminPassword) {
+      // Buscar o administrador atual da empresa
+      let admin = null;
+      
+      if (adminId) {
+        // Se tem ID do admin, buscar por ID
+        admin = await User.findOne({ 
+          where: { 
+            id: adminId, 
+            companyId: company.id, 
+            role: 'admin' 
+          } 
+        });
+      } else {
+        // Senão, buscar o primeiro admin da empresa
+        admin = await User.findOne({ 
+          where: { 
+            companyId: company.id, 
+            role: 'admin' 
+          } 
+        });
+      }
+
+      if (admin) {
+        // Atualizar administrador existente
+        const adminUpdateData = {};
+        
+        if (adminName) adminUpdateData.name = adminName;
+        if (adminEmail) {
+          // Verificar se email não está em uso por outro usuário
+          const existingUser = await User.findOne({ 
+            where: { 
+              email: adminEmail,
+              id: { [Op.ne]: admin.id }
+            } 
+          });
+          if (existingUser) {
+            return res.status(400).json({ 
+              error: 'Email já está em uso por outro usuário' 
+            });
+          }
+          adminUpdateData.email = adminEmail;
+        }
+        if (adminPassword) {
+          const bcrypt = await import('bcryptjs');
+          adminUpdateData.password = await bcrypt.hash(adminPassword, 12);
+        }
+
+        await admin.update(adminUpdateData);
+      } else if (adminName && adminEmail && adminPassword) {
+        // Criar novo administrador se não existe
+        const bcrypt = await import('bcryptjs');
+        const hashedPassword = await bcrypt.hash(adminPassword, 12);
+
+        await User.create({
+          name: adminName,
+          email: adminEmail,
+          password: hashedPassword,
+          role: 'admin',
+          companyId: company.id,
+          isActive: true,
+          isMasterAdmin: false
+        });
+      }
+    }
+
+    // Recarregar empresa com usuários atualizados
+    const updatedCompany = await Company.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'users',
+          attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt']
+        }
+      ]
+    });
+
+    res.json(updatedCompany);
   } catch (error) {
     console.error('Erro ao atualizar empresa:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });

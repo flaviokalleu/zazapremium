@@ -32,6 +32,7 @@ router.get('/list', authMiddleware, async (req, res) => {
   try {
     const sessionsStats = await sessionLibraryManager.listAllSessions();
     const dbSessions = await Session.findAll({
+      where: { companyId: req.user.companyId },
       attributes: ['id', 'whatsappId', 'library', 'status', 'name']
     });
     

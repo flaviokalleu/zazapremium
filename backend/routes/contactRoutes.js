@@ -51,6 +51,14 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const contacts = await Contact.findAll({
       where,
+      include: [
+        {
+          model: Session,
+          required: true,
+          where: { companyId: req.user.companyId },
+          attributes: []
+        }
+      ],
       order: [
         ['updatedAt', 'DESC'],
         ['name', 'ASC']
@@ -250,9 +258,16 @@ router.post('/contact', authMiddleware, async (req, res) => {
       return res.status(409).json({ error: 'Contato já existe para esta sessão', contact: existing });
     }
 
+    // Buscar sessão para obter companyId
+    const session = await Session.findByPk(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão não encontrada' });
+    }
+
     const created = await Contact.create({
       whatsappId: jid,
       sessionId,
+      companyId: session.companyId,
       name: name || null,
       pushname: pushname || null,
       formattedNumber: formattedNumber || (jid.includes('@') ? jid.split('@')[0] : jid),
@@ -427,6 +442,7 @@ router.post('/contact/:contactId/message', authMiddleware, async (req, res) => {
         contact: contact.whatsappId,
         contactId: contact.id,
         sessionId: sessionId || contact.sessionId,
+        companyId: req.user.companyId,
         status: 'open',
         chatStatus: 'waiting',
         unreadCount: 0
@@ -470,6 +486,7 @@ router.post('/:contactId/message', authMiddleware, async (req, res) => {
         contact: contact.whatsappId,
         contactId: contact.id,
         sessionId: sessionId || contact.sessionId,
+        companyId: req.user.companyId,
         status: 'open',
         chatStatus: 'waiting',
         unreadCount: 0

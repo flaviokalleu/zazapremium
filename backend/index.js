@@ -34,6 +34,7 @@ import multiChannelRoutes from './routes/multiChannelRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import companyRoutes from './routes/companies.js';
 import path from 'path';
+import sequelize from './services/sequelize.js';
 
 dotenv.config();
 
@@ -44,9 +45,10 @@ const server = createServer(app);
 const io = initializeSocket(server);
 
 // Middlewares
-// Permitir APENAS o frontend definido no .env (FRONTEND_URL ou FRONTEND_ORIGINS csv)
+// Permitir APENAS o(s) frontend(s) definido(s) em FRONTEND_URL (pode ser único ou CSV)
+// Variável unificada: FRONTEND_URL
 const parseAllowedOrigins = () => {
-  const raw = process.env.FRONTEND_ORIGINS || process.env.FRONTEND_URL || '';
+  const raw = process.env.FRONTEND_URL || '';
   const fromEnv = raw
     .split(',')
     .map(s => s.trim())
@@ -151,6 +153,13 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 server.listen(PORT, HOST, async () => {
   console.log(`🚀 Backend running on ${HOST}:${PORT}`);
+  // Testar conexão com banco na subida
+  try {
+    await sequelize.authenticate();
+    console.log('🗄️ Conexão com banco verificada com sucesso');
+  } catch (e) {
+    console.error('❌ Falha ao conectar ao banco:', e.message);
+  }
   console.log(`🌐 Accessible at:`);
   console.log(`   - Local: http://localhost:${PORT}`);
   console.log(`   - Network: http://192.168.1.100:${PORT} (replace with your IP)`);
@@ -187,3 +196,38 @@ server.listen(PORT, HOST, async () => {
     
   }, 3000); // Aguardar 3 segundos
 });
+
+// Encerramento gracioso
+const gracefulShutdown = async (signal) => {
+  console.log(`\n⚠️ Recebido sinal ${signal}. Encerrando graciosamente...`);
+  try {
+    // Parar timers e schedulers primeiro
+    try {
+      const { stopScheduleDispatcher } = await import('./services/scheduleDispatcher.js');
+      stopScheduleDispatcher();
+      console.log('⏰ Dispatcher de agendamentos parado');
+    } catch (e) {
+      console.error('Erro ao parar dispatcher:', e.message);
+    }
+    
+    try {
+      const { stopSessionHealthCheck } = await import('./services/sessionManager.js');
+      stopSessionHealthCheck();
+      console.log('🏥 Health check das sessões parado');
+    } catch (e) {
+      console.error('Erro ao parar health check:', e.message);
+    }
+    
+    await RedisService.disconnect();
+    await sequelize.close();
+  } catch (e) {
+    console.error('Erro ao finalizar recursos:', e.message);
+  }
+  server.close(() => {
+    console.log('Servidor HTTP fechado.');
+    process.exit(0);
+  });
+  // Timeout de segurança
+  setTimeout(() => process.exit(1), 10000).unref();
+};
+['SIGINT','SIGTERM'].forEach(sig => process.on(sig, () => gracefulShutdown(sig)));
